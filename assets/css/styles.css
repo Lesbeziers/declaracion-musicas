@@ -174,12 +174,90 @@ body {
   background-color: #6b6b6b;
 }
 
+.layout-bar__content--mid {
+  justify-content: space-between;
+}
+
+.layout-bar__controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  white-space: nowrap;
+}
+
+.layout-bar__title {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.layout-bar__icons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.layout-bar__icon {
+  width: 20px;
+  height: 20px;
+  border: none;
+  padding: 0;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  cursor: pointer;
+}
+
+.layout-bar__icon--plus {
+  background-image: url("../img/ic_mas.svg");
+}
+
+.layout-bar__icon--plus:hover {
+  background-image: url("../img/ic_mas_hover.svg");
+}
+
+.layout-bar__icon--minus {
+  background-image: url("../img/ic_menos.svg");
+}
+
+.layout-bar__icon--minus:hover {
+  background-image: url("../img/ic_menos_hover.svg");
+}
+
+.layout-bar__divider {
+  width: 4px;
+  height: 28px;
+  background-color: #ffffff;
+}
+
+.layout-bar__button {
+  background-color: #ffffff;
+  color: #333333;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.layout-bar__button:hover {
+  color: #31d0f4;
+}
+
+.layout-bar__email {
+  color: #ffffff;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.layout-bar__email:hover {
+  color: #31d0f4;
+}
+
 .layout-content {
   height: 852px;
   background-color: #ffffff;
 }
-
-
-
-
-
