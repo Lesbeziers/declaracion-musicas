@@ -79,6 +79,12 @@ body {
   height: 32px;
 }
 
+.layout-header__left img[src="assets/img/logo_SGAE.svg"],
+.layout-header__right img[src="assets/img/logoM+.svg"] {
+  transform: scale(1.3);
+  transform-origin: center;
+}
+
 .layout-header__center {
   position: absolute;
   left: 50%;
@@ -107,4 +113,5 @@ body {
   height: 852px;
   background-color: #ffffff;
 }
+
 
