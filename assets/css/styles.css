@@ -144,12 +144,29 @@ body {
   border: 2px solid #31d0f4;
 }
 
+.layout-bar__input--invalid,
+.layout-bar__input--invalid:focus {
+  border: 2px solid #ff0000;
+}
+
 .layout-bar__input--program {
   width: 480px;
 }
 
 .layout-bar__input--episode {
   width: 140px;
+}
+
+.layout-bar__group {
+  position: relative;
+}
+
+.layout-bar__warning {
+  position: absolute;
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
 .layout-bar--mid {
@@ -161,6 +178,7 @@ body {
   height: 852px;
   background-color: #ffffff;
 }
+
 
 
 
