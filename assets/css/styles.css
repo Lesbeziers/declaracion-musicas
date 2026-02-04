@@ -276,7 +276,6 @@ body {
   width: 100%;
   height: 100%;
   overflow-y: auto;
-  border-top: 1px solid #e4e4e4;
 }
 
 .records-list__grid {
@@ -318,17 +317,32 @@ body {
 }
 
 .records-list__checkbox {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   appearance: none;
-  border: 2px solid #bfbfbf;
+  border: 2px solid #ffffff;
   border-radius: 2px;
-  background-color: #ffffff;
+  background-color: transparent;
+  cursor: pointer;
+}
+
+.records-list__checkbox:hover,
+.records-list__checkbox:checked {
+  border-color: #333333;
 }
 
 .records-list__handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 20px;
   font-size: 18px;
-  color: #8b8b8b;
+  color: #ffffff;
   cursor: grab;
   line-height: 1;
+}
+
+.records-list__handle:hover {
+  color: #333333;
 }
