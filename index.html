@@ -19,10 +19,32 @@
           <img src="assets/img/logoM+.svg" alt="Movistar Plus" />
         </div>
       </header>
-      <div class="layout-bar layout-bar--dark"></div>
+      <div class="layout-bar layout-bar--dark">
+        <div class="layout-bar__content">
+          <div class="layout-bar__group">
+            <label class="layout-bar__label" for="programTitleInput">TÍTULO DE PROGRAMA</label>
+            <input
+              class="layout-bar__input layout-bar__input--program"
+              id="programTitleInput"
+              type="text"
+              maxlength="100"
+            />
+          </div>
+          <div class="layout-bar__group layout-bar__group--right">
+            <label class="layout-bar__label" for="episodeInput">CAPÍTULO</label>
+            <input
+              class="layout-bar__input layout-bar__input--episode"
+              id="episodeInput"
+              type="text"
+              maxlength="100"
+            />
+          </div>
+        </div>
+      </div>
       <div class="layout-bar layout-bar--mid"></div>
       <main class="layout-content"></main>
     </div>
     <script src="assets/js/app.js"></script>
   </body>
 </html>
+
