@@ -55,6 +55,7 @@ body {
   height: 92px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 64px;
   position: relative;
   background-color: #ffffff;
@@ -62,9 +63,13 @@ body {
 
 .layout-header__left,
 .layout-header__right {
-  flex: 0 0 auto;
+  flex: 1;
   display: flex;
   align-items: center;
+}
+
+.layout-header__right {
+  justify-content: flex-end;
 }
 
 .layout-header__left img,
@@ -102,3 +107,4 @@ body {
   height: 852px;
   background-color: #ffffff;
 }
+
