@@ -266,7 +266,8 @@ body {
 .records-list {
   width: 100%;
   max-width: 1920px;
-  margin: 0 auto;
+  --recordsTopOffset: -32px;
+  margin: var(--recordsTopOffset) auto 0;
   padding: 24px 64px 32px;
   display: flex;
   flex: 1;
@@ -311,22 +312,23 @@ body {
 }
 
 .records-list__cell--controls {
+  --records-control-size: 20px;
   gap: 12px;
   justify-content: flex-start;
 }
 
 .records-list__checkbox {
-  width: 20px;
-  height: 20px;
+  width: var(--records-control-size);
+  height: var(--records-control-size);
   appearance: none;
-  border: 2px solid #ffffff;
+  border: 1px solid #333333;
   border-radius: 2px;
-  background-color: transparent;
+  background-color: #ffffff;
   cursor: pointer;
 }
 
-.records-list__checkbox:hover,
 .records-list__checkbox:checked {
+  background-color: #333333;
   border-color: #333333;
 }
 
@@ -334,8 +336,8 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 20px;
+  width: calc(var(--records-control-size) * 2);
+  height: var(--records-control-size);
   font-size: 18px;
   color: #ffffff;
   cursor: grab;
@@ -345,3 +347,4 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
