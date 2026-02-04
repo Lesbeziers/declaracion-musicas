@@ -227,7 +227,7 @@ body {
 }
 
 .layout-bar__divider {
-  width: 4px;
+  width: 2px;
   height: 28px;
   background-color: #ffffff;
 }
@@ -261,3 +261,4 @@ body {
   height: 852px;
   background-color: #ffffff;
 }
+
