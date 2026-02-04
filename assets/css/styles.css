@@ -260,5 +260,75 @@ body {
 .layout-content {
   height: 852px;
   background-color: #ffffff;
+  display: flex;
 }
 
+.records-list {
+  width: 100%;
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: 24px 64px 32px;
+  display: flex;
+  flex: 1;
+}
+
+.records-list__viewport {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  border-top: 1px solid #e4e4e4;
+}
+
+.records-list__grid {
+  display: grid;
+  grid-template-columns: 72px 220px 180px 180px 110px 90px 90px 140px 140px 160px 170px;
+  column-gap: 16px;
+  align-items: center;
+}
+
+.records-list__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: #ffffff;
+  color: #1a1a1a;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.3px;
+  padding: 18px 12px 14px;
+  border-bottom: 1px solid #e4e4e4;
+}
+
+.records-list__row {
+  background-color: #e8e8e8;
+  padding: 16px 12px;
+  border-bottom: 1px solid #d6d6d6;
+}
+
+.records-list__cell {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  color: #1a1a1a;
+}
+
+.records-list__cell--controls {
+  gap: 12px;
+  justify-content: flex-start;
+}
+
+.records-list__checkbox {
+  width: 18px;
+  height: 18px;
+  appearance: none;
+  border: 2px solid #bfbfbf;
+  border-radius: 2px;
+  background-color: #ffffff;
+}
+
+.records-list__handle {
+  font-size: 18px;
+  color: #8b8b8b;
+  cursor: grab;
+  line-height: 1;
+}
