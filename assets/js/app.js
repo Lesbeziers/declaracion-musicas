@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
     closeButton.focus();
   };
 
-  const createRecordRow = (record) => {
+  const createRecordRow = (record, visualIndex) => {
     const row = document.createElement("div");
     row.className = "records-list__row records-list__grid";
     row.dataset.recordId = String(record.id);
@@ -128,8 +128,12 @@ document.addEventListener("DOMContentLoaded", () => {
     for (let index = 0; index < 10; index += 1) {
       const cell = document.createElement("div");
       cell.className = "records-list__cell";
+      if (index === 0) {
+        cell.textContent = `Ficha ${visualIndex}`;
+      }
       row.appendChild(cell);
     }
+
 
     return row;
   };
@@ -140,8 +144,8 @@ document.addEventListener("DOMContentLoaded", () => {
   
   const renderRecords = () => {
     recordsBody.innerHTML = "";
-    records.forEach((record) => {
-      recordsBody.appendChild(createRecordRow(record));
+    records.forEach((record, index) => {
+      recordsBody.appendChild(createRecordRow(record, index + 1));
     });
     updateMinusButtonState();
   };
@@ -188,3 +192,4 @@ document.addEventListener("DOMContentLoaded", () => {
   plusButton.addEventListener("click", addEmptyRecord);
   minusButton.addEventListener("click", removeSelectedRecords);
 });
+
