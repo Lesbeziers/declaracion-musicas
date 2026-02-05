@@ -267,7 +267,7 @@ body {
   width: 100%;
   max-width: 1920px;
   margin: 0 auto;
-  padding: 24px 64px 32px;
+  padding: 0px 64px 32px;
   display: flex;
   flex: 1;
 }
@@ -345,5 +345,6 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
