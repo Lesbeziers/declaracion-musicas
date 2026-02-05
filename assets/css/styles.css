@@ -43,6 +43,7 @@ body {
 }
 
 :root {
+  --w-controls: 72px;
   --w-titulo: 220px;
   --w-autor: 180px;
   --w-interprete: 180px;
@@ -53,6 +54,9 @@ body {
   --w-tipo-musica: 140px;
   --w-codigo-libreria: 160px;
   --w-nombre-libreria: 170px;
+  --cols: var(--w-controls) var(--w-titulo) var(--w-autor) var(--w-interprete)
+    var(--w-duracion) var(--w-tc-in) var(--w-tc-out) var(--w-modalidad)
+    var(--w-tipo-musica) var(--w-codigo-libreria) var(--w-nombre-libreria);
 }
 
 .layout-frame {
@@ -419,10 +423,10 @@ body {
 }
 .records-list__grid {
   display: grid;
-  grid-template-columns: 72px 220px 180px 180px 110px 90px 90px 140px 140px 160px 170px;
-  column-gap: 16px;
+  grid-template-columns: var(--cols);
+  column-gap: 12px;
   align-items: center;
-}
+}␊
 
 .records-list__header {
   position: sticky;
@@ -619,6 +623,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
