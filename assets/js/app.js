@@ -65,6 +65,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let nextRecordId = 1;
   const records = [];
   let lastDeleteSnapshot = null;
+  const dragPlaceholder = document.createElement("div");
+  dragPlaceholder.className = "records-list__row records-list__grid drag-placeholder";
+  let draggedRow = null;
+  let dropTargetRow = null;
 
   const updateBackButtonState = () => {
     if (backButton) {
@@ -181,6 +185,16 @@ document.addEventListener("DOMContentLoaded", () => {
     handle.setAttribute("aria-hidden", "true");
     handle.textContent = "≡";
 
+    handle.addEventListener("mousedown", () => {
+      row.draggable = true;
+    });
+
+    handle.addEventListener("mouseup", () => {
+      if (!row.classList.contains("is-dragging")) {
+        row.draggable = false;
+      }
+    });
+
     controlsCell.append(checkbox, handle);
     row.appendChild(controlsCell);
 
@@ -193,8 +207,83 @@ document.addEventListener("DOMContentLoaded", () => {
       row.appendChild(cell);
     }
 
+    row.addEventListener("dragstart", (event) => {
+      draggedRow = row;
+      row.classList.add("is-dragging");
+      dragPlaceholder.style.height = `${row.offsetHeight}px`;
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", row.dataset.recordId || "");
+    });
+
+    row.addEventListener("dragend", () => {
+      clearDragState();
+    });
+
 
     return row;
+  };
+
+  const clearDropIndicator = () => {
+    if (dropTargetRow) {
+      dropTargetRow.classList.remove("drop-before", "drop-after");
+      dropTargetRow = null;
+    }
+  };
+
+  const clearDragState = () => {
+    clearDropIndicator();
+    dragPlaceholder.remove();
+    if (draggedRow) {
+      draggedRow.classList.remove("is-dragging");
+      draggedRow.draggable = false;
+      draggedRow = null;
+    }
+  };
+
+  const getNearestRow = (clientX, clientY) => {
+    const hovered = document
+      .elementFromPoint(clientX, clientY)
+      ?.closest(".records-list__row");
+    if (hovered && hovered !== draggedRow && hovered !== dragPlaceholder) {
+      return hovered;
+    }
+
+    let nearestRow = null;
+    let nearestDistance = Infinity;
+    const rows = recordsBody.querySelectorAll(".records-list__row");
+
+    rows.forEach((row) => {
+      if (row === draggedRow || row === dragPlaceholder) {
+        return;
+      }
+      const rect = row.getBoundingClientRect();
+      const rowMiddle = rect.top + rect.height / 2;
+      const distance = Math.abs(clientY - rowMiddle);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestRow = row;
+      }
+    });
+
+    return nearestRow;
+  };
+
+  const syncRecordsOrderFromDom = () => {
+    const recordById = new Map(records.map((record) => [record.id, record]));
+    const orderedRecords = [];
+
+    recordsBody.querySelectorAll(".records-list__row").forEach((row) => {
+      if (row === dragPlaceholder) {
+        return;
+      }
+      const recordId = Number(row.dataset.recordId);
+      const record = recordById.get(recordId);
+      if (record) {
+        orderedRecords.push(record);
+      }
+    });
+
+    records.splice(0, records.length, ...orderedRecords);
   };
 
   const updateMinusButtonState = () => {
@@ -293,8 +382,57 @@ document.addEventListener("DOMContentLoaded", () => {
   updateBackButtonState();
   plusButton.addEventListener("click", addEmptyRecord);
   minusButton.addEventListener("click", removeSelectedRecords);
+
+  recordsBody.addEventListener("dragover", (event) => {
+    if (!draggedRow) {
+      return;
+    }
+
+    event.preventDefault();
+    const targetRow = getNearestRow(event.clientX, event.clientY);
+    if (!targetRow) {
+      return;
+    }
+
+    clearDropIndicator();
+    dropTargetRow = targetRow;
+
+    const targetRect = targetRow.getBoundingClientRect();
+    const isAfter = event.clientY >= targetRect.top + targetRect.height / 2;
+    targetRow.classList.add(isAfter ? "drop-after" : "drop-before");
+
+    if (isAfter) {
+      targetRow.insertAdjacentElement("afterend", dragPlaceholder);
+    } else {
+      targetRow.insertAdjacentElement("beforebegin", dragPlaceholder);
+    }
+  });
+
+  recordsBody.addEventListener("drop", (event) => {
+    if (!draggedRow || !dragPlaceholder.parentElement) {
+      return;
+    }
+
+    event.preventDefault();
+    recordsBody.insertBefore(draggedRow, dragPlaceholder);
+    syncRecordsOrderFromDom();
+    renderRecords();
+    clearDragState();
+  });
+
+  recordsBody.addEventListener("dragleave", (event) => {
+    if (!draggedRow) {
+      return;
+    }
+    if (!recordsBody.contains(event.relatedTarget)) {
+      clearDropIndicator();
+      dragPlaceholder.remove();
+    }
+  });
+
   if (backButton) {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
