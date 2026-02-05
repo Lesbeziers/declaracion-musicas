@@ -458,14 +458,18 @@ body {
 }
 
 .records-list__field.is-editing {
-  border-bottom: 2px solid #31d0f4;
+  border: 2px solid #31d0f4;
+  outline: none;
+  box-shadow: none;
 }
 
 .records-list__field.is-error,
 .records-list__field.is-error:focus,
 #dm-editor-input.is-error {
-  border-color: #bcbcbc;
-  border-bottom: 2px solid #ff0000;
+  border: 2px solid #ff0000;
+  outline: none;
+  box-shadow: none;
+}
 }
 
 #dm-editor-layer {
@@ -489,8 +493,8 @@ body {
   display: block;
 }
 
-#dm-editor-input.is-editing {
-  border-bottom: 2px solid #31d0f4;
+#dm-editor-input.is-editing:not(.is-error) {
+  border: 2px solid #31d0f4;
 }
 
 #dm-editor-hint {
@@ -562,6 +566,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
