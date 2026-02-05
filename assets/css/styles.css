@@ -55,6 +55,7 @@ body {
   --w-tipo-musica: 140px;
   --w-codigo-libreria: 160px;
   --w-nombre-libreria: 170px;
+  --col-gap: 12px;
 }
 
 .layout-frame {
@@ -421,8 +422,8 @@ body {
 }
 .records-list__grid {
   display: grid;
-  grid-template-columns: 72px 220px 180px 180px 110px 90px 90px 140px 140px 160px 170px;
-  column-gap: 16px;
+  grid-template-columns: 72px var(--w-titulo) var(--w-autor) var(--w-interprete) var(--w-duracion) var(--w-tc-in) var(--w-tc-out) var(--w-modalidad) var(--w-tipo-musica) var(--w-codigo-libreria) var(--w-nombre-libreria);
+  column-gap: var(--col-gap, 12px);
   align-items: center;
 }
 
@@ -621,6 +622,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
