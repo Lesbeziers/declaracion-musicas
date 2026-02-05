@@ -279,6 +279,24 @@ body {
   cursor: pointer;
 }
 
+.delete-warning-modal__actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.delete-warning-modal__action {
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  background-color: #333333;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .layout-bar__divider {
   width: 2px;
   height: 28px;
@@ -423,17 +441,3 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
