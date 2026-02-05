@@ -428,7 +428,7 @@ body {
   grid-template-columns: var(--cols);
   column-gap: var(--col-gap);
   align-items: center;
-}␊
+}
 
 .records-list__header {
   position: sticky;
@@ -531,7 +531,6 @@ body {
   outline: none;
   box-shadow: none;
 }
-}
 
 #dm-editor-layer {
   position: fixed;
@@ -627,6 +626,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
