@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const programInput = document.getElementById("programTitleInput");
   const episodeInput = document.getElementById("episodeInput");
   const plusButton = document.querySelector(".layout-bar__icon--plus");
+  const minusButton = document.querySelector(".layout-bar__icon--minus");
   const recordsViewport = document.querySelector(".records-list__viewport");
   const recordsBody = document.querySelector(".records-list__body");
   const maxLength = 100;
@@ -56,7 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  if (!plusButton || !recordsViewport || !recordsBody) {
+  if (!plusButton || !minusButton || !recordsViewport || !recordsBody) {
     return;
   }
 
@@ -67,6 +68,45 @@ document.addEventListener("DOMContentLoaded", () => {
     id: nextRecordId++,
     checked: false,
   });
+
+const createDeleteWarningModal = () => {
+    const overlay = document.createElement("div");
+    overlay.className = "delete-warning-modal__overlay";
+    overlay.hidden = true;
+
+    const dialog = document.createElement("div");
+    dialog.className = "delete-warning-modal";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+
+    const text = document.createElement("p");
+    text.className = "delete-warning-modal__text";
+    text.textContent = "Selecciona las filas que quieres eliminar";
+
+    const closeButton = document.createElement("button");
+    closeButton.className = "delete-warning-modal__close";
+    closeButton.type = "button";
+    closeButton.textContent = "Cerrar";
+
+    dialog.append(text, closeButton);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    const hide = () => {
+      overlay.hidden = true;
+    };
+
+    closeButton.addEventListener("click", hide);
+
+    return {
+      show: () => {
+        overlay.hidden = false;
+        closeButton.focus();
+      },
+    };
+  };
+
+  const deleteWarningModal = createDeleteWarningModal();
 
   const createRecordRow = (record) => {
     const row = document.createElement("div");
@@ -101,11 +141,16 @@ document.addEventListener("DOMContentLoaded", () => {
     return row;
   };
 
+  const updateMinusButtonState = () => {
+    minusButton.disabled = records.length <= 1;
+  };
+  
   const renderRecords = () => {
     recordsBody.innerHTML = "";
     records.forEach((record) => {
       recordsBody.appendChild(createRecordRow(record));
     });
+    updateMinusButtonState();
   };
 
   const addEmptyRecord = () => {
@@ -119,6 +164,35 @@ document.addEventListener("DOMContentLoaded", () => {
     recordsViewport.scrollTop = recordsViewport.scrollHeight;
   };
 
+    const removeSelectedRecords = () => {
+    if (minusButton.disabled) {
+      return;
+    }
+
+    const hasSelectedRecords = records.some((record) => record.checked);
+    if (!hasSelectedRecords) {
+      deleteWarningModal.show();
+      return;
+    }
+
+    const previousScrollTop = recordsViewport.scrollTop;
+
+    for (let index = records.length - 1; index >= 0; index -= 1) {
+      if (records[index].checked) {
+        records.splice(index, 1);
+      }
+    }
+
+    if (records.length === 0) {
+      records.unshift(createEmptyRecord());
+    }
+
+    renderRecords();
+    recordsViewport.scrollTop = Math.min(previousScrollTop, recordsViewport.scrollHeight);
+  };
+
   addEmptyRecord();
   plusButton.addEventListener("click", addEmptyRecord);
+  minusButton.addEventListener("click", removeSelectedRecords);
 });
+
