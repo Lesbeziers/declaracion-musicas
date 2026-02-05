@@ -304,6 +304,7 @@ body {
   background-color: #e8e8e8;
   padding: 16px 12px;
   border-bottom: 1px solid #d6d6d6;
+  margin-bottom: 3px;
 }
 
 .records-list__cell {
@@ -373,6 +374,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
