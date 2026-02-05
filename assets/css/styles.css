@@ -311,7 +311,7 @@ body {
 
 .records-list__cell--controls {
   --records-control-size: 20px;
-  gap: 12px;
+  gap: 6px;
   justify-content: flex-start;
 }
 
@@ -319,32 +319,48 @@ body {
   width: var(--records-control-size);
   height: var(--records-control-size);
   appearance: none;
-  border: 1px solid #333333;
+  border: none;
   border-radius: 2px;
   background-color: #ffffff;
   cursor: pointer;
+  outline: none;
 }
 
 .records-list__checkbox:checked {
   background-color: #333333;
-  border-color: #333333;
 }
 
 .records-list__handle {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   width: calc(var(--records-control-size) * 2);
   height: var(--records-control-size);
-  font-size: 18px;
-  color: #ffffff;
+
+  color: #ffffff;         /* blanco por defecto */
   cursor: grab;
-  line-height: 1;
+
+  font-size: 0;           /* oculta el carácter ≡ si existe en el HTML */
+  line-height: 0;
+}
+
+.records-list__handle::before {
+  content: "";
+  width: 55%;
+  height: 70%;
+  background:
+    linear-gradient(currentColor 0 0) 0 0 / 100% 2px no-repeat,
+    linear-gradient(currentColor 0 0) 0 50% / 100% 2px no-repeat,
+    linear-gradient(currentColor 0 0) 0 100% / 100% 2px no-repeat;
+  border-radius: 1px;
 }
 
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
