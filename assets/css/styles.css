@@ -230,6 +230,53 @@ body {
   background-image: url("../img/ic_back.svg");
 }
 
+
+.layout-bar__icon:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.layout-bar__icon--minus:disabled:hover {
+  background-image: url("../img/ic_menos.svg");
+}
+
+.delete-warning-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.delete-warning-modal {
+  width: min(420px, calc(100vw - 40px));
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.delete-warning-modal__text {
+  margin: 0;
+  color: #1a1a1a;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.delete-warning-modal__close {
+  margin-top: 20px;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  background-color: #333333;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .layout-bar__divider {
   width: 2px;
   height: 28px;
@@ -374,6 +421,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
