@@ -71,6 +71,25 @@ document.addEventListener("DOMContentLoaded", () => {
   dragPlaceholder.className = "records-list__row records-list__grid drag-placeholder";
   let draggedRow = null;
   let dropTargetRow = null;
+  let activeEditorTarget = null;
+  let editorPreviousValue = "";
+  let shouldSkipFocusOpen = false;
+
+  const editorLayer = document.createElement("div");
+  editorLayer.id = "dm-editor-layer";
+
+  const overlayInput = document.createElement("input");
+  overlayInput.id = "dm-editor-input";
+  overlayInput.type = "text";
+  overlayInput.className = "records-list__field";
+
+  const overlayHint = document.createElement("div");
+  overlayHint.id = "dm-editor-hint";
+  overlayHint.textContent = "Máximo 100 caracteres";
+  overlayHint.hidden = true;
+
+  editorLayer.append(overlayInput, overlayHint);
+  document.body.appendChild(editorLayer);
 
   const updateBackButtonState = () => {
     if (backButton) {
@@ -85,15 +104,27 @@ document.addEventListener("DOMContentLoaded", () => {
     author: "",
   });
 
-  const getExpandedInputStyles = (input) => {
-    if (!textMeasureContext) {
-      return null;
+  const syncOverlayValidation = () => {
+    if (!activeEditorTarget) {
+      return;
+    }
+    const isInvalid = overlayInput.value.length > maxLength;
+    overlayInput.classList.toggle("is-error", isInvalid);
+    activeEditorTarget.classList.toggle("is-error", isInvalid);
+    overlayHint.hidden = !isInvalid;
+  };
+
+  const updateOverlayPosition = () => {
+    if (!activeEditorTarget || !textMeasureContext) {
+      return;
     }
 
-    const computedStyle = window.getComputedStyle(input);
+    const inputRect = activeEditorTarget.getBoundingClientRect();
+    const computedStyle = window.getComputedStyle(activeEditorTarget);
     textMeasureContext.font = computedStyle.font;
-    const text = input.value || input.placeholder || "";
-    const textWidth = textMeasureContext.measureText(text).width;
+
+    const text = overlayInput.value || activeEditorTarget.placeholder || "";
+    const measuredWidth = textMeasureContext.measureText(text).width;
     const horizontalPadding =
       parseFloat(computedStyle.paddingLeft) +
       parseFloat(computedStyle.paddingRight) +
@@ -101,28 +132,55 @@ document.addEventListener("DOMContentLoaded", () => {
       parseFloat(computedStyle.borderRightWidth) +
       24;
 
-    const baseWidth = input.offsetWidth;
-    const viewportRect = recordsViewport.getBoundingClientRect();
-    const cell = input.closest(".records-list__field-cell");
-    if (!cell) {
-      return null;
-    }
+    const baseWidth = inputRect.width;
+    const idealWidth = measuredWidth + horizontalPadding;
+    const maxWidth = Math.max(baseWidth, window.innerWidth - 16);
+    const width = Math.min(Math.max(idealWidth, baseWidth), maxWidth);
+    const left = Math.min(Math.max(8, inputRect.left), window.innerWidth - 8 - width);
 
-    const cellRect = cell.getBoundingClientRect();
-    const maxAllowedByViewport = Math.max(baseWidth, viewportRect.width - 16);
-    const idealWidth = textWidth + horizontalPadding;
-    const width = Math.min(Math.max(idealWidth, baseWidth), Math.min(700, maxAllowedByViewport));
+    overlayInput.style.width = `${width}px`;
+    overlayInput.style.left = `${left}px`;
+    overlayInput.style.top = `${inputRect.top}px`;
+    overlayInput.style.height = `${inputRect.height}px`;
 
-    const minLeft = viewportRect.left + 8 - cellRect.left;
-    const maxLeft = viewportRect.right - 8 - cellRect.left - width;
-    const left = Math.min(Math.max(0, minLeft), maxLeft);
-
-    return {
-      width,
-      left,
-    };
+    overlayHint.style.left = `${left}px`;
+    overlayHint.style.top = `${inputRect.bottom + 4}px`;
   };
 
+  const closeOverlay = ({ cancel = false } = {}) => {
+    if (!activeEditorTarget) {
+      return;
+    }
+
+    if (cancel) {
+      activeEditorTarget.value = editorPreviousValue;
+      activeEditorTarget.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    const isInvalid = activeEditorTarget.value.length > maxLength;
+
+    activeEditorTarget.classList.remove("is-editing");
+    activeEditorTarget.classList.toggle("is-error", isInvalid);
+    overlayInput.classList.remove("is-active", "is-editing", "is-error");
+    overlayHint.hidden = true;
+
+    activeEditorTarget = null;
+    editorPreviousValue = "";
+  };
+
+  const openOverlayForInput = (input) => {
+    activeEditorTarget = input;
+    editorPreviousValue = input.value;
+
+    input.classList.add("is-editing");
+    overlayInput.value = input.value;
+    overlayInput.placeholder = input.placeholder;
+    overlayInput.classList.add("is-active", "is-editing");
+    syncOverlayValidation();
+    updateOverlayPosition();
+    overlayInput.focus();
+    overlayInput.setSelectionRange(overlayInput.value.length, overlayInput.value.length);
+  };
   const showDeleteWarningModal = () => {
     const overlay = document.createElement("div");
     overlay.className = "delete-warning-modal__overlay";
@@ -243,10 +301,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const titleCell = document.createElement("div");
     titleCell.className = "records-list__cell records-list__field-cell";
     const titleInput = document.createElement("input");
-    titleInput.className = "records-list__field";
+    titleInput.className = "records-list__field dm-input";
     titleInput.type = "text";
     titleInput.value = record.title;
-    titleInput.maxLength = 200;
     titleInput.placeholder = "Título";
     titleInput.addEventListener("input", (event) => {
       record.title = event.target.value;
@@ -257,10 +314,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const authorCell = document.createElement("div");
     authorCell.className = "records-list__cell records-list__field-cell";
     const authorInput = document.createElement("input");
-    authorInput.className = "records-list__field";
+    authorInput.className = "records-list__field dm-input";
     authorInput.type = "text";
     authorInput.value = record.author;
-    authorInput.maxLength = 200;
     authorInput.placeholder = "Autor";
     authorInput.addEventListener("input", (event) => {
       record.author = event.target.value;
@@ -498,55 +554,89 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   recordsBody.addEventListener("focusin", (event) => {
-    const input = event.target.closest(".records-list__field");
-    if (!input) {
+    const input = event.target.closest(".dm-input");
+    if (!input || shouldSkipFocusOpen) {
+      shouldSkipFocusOpen = false;
       return;
     }
 
-    input.dataset.previousValue = input.value;
-    const styles = getExpandedInputStyles(input);
-    if (!styles) {
-      return;
+    if (activeEditorTarget && activeEditorTarget !== input) {
+      closeOverlay();
     }
 
-    input.classList.add("is-editing");
-    input.style.width = `${styles.width}px`;
-    input.style.left = `${styles.left}px`;
+    openOverlayForInput(input);
   });
 
-  recordsBody.addEventListener("focusout", (event) => {
-    const input = event.target.closest(".records-list__field");
+  recordsBody.addEventListener("mousedown", (event) => {
+    const input = event.target.closest(".dm-input");
     if (!input) {
       return;
     }
 
-    input.classList.remove("is-editing");
-    input.style.width = "";
-    input.style.left = "";
-    delete input.dataset.previousValue;
+    event.preventDefault();
+    input.focus();
   });
 
-  recordsBody.addEventListener("keydown", (event) => {
-    const input = event.target.closest(".records-list__field");
-    if (!input) {
+  overlayInput.addEventListener("input", () => {
+    if (!activeEditorTarget) {
+      return;
+    }
+    activeEditorTarget.value = overlayInput.value;
+    activeEditorTarget.dispatchEvent(new Event("input", { bubbles: true }));
+    syncOverlayValidation();
+    updateOverlayPosition();
+  });
+
+  overlayInput.addEventListener("keydown", (event) => {
+    if (!activeEditorTarget) {
+      return;
+    }
+
+    if (event.key === "Tab") {
+      event.preventDefault();
+      const row = activeEditorTarget.closest(".records-list__row");
+      const rowInputs = row ? Array.from(row.querySelectorAll(".dm-input")) : [];
+      if (!rowInputs.length) {
+        return;
+      }
+
+      const currentIndex = rowInputs.indexOf(activeEditorTarget);
+      const delta = event.shiftKey ? -1 : 1;
+      const nextIndex = (currentIndex + delta + rowInputs.length) % rowInputs.length;
+      const nextInput = rowInputs[nextIndex];
+      closeOverlay();
+      shouldSkipFocusOpen = false;
+      nextInput.focus();
       return;
     }
 
     if (event.key === "Enter") {
       event.preventDefault();
-      input.blur();
+      const inputToBlur = activeEditorTarget;
+      closeOverlay();
+      shouldSkipFocusOpen = true;
+      inputToBlur?.blur();
       return;
     }
 
-    if (event.key === "Escape" && input.dataset.previousValue !== undefined) {
+    if (event.key === "Escape") {
       event.preventDefault();
-      input.value = input.dataset.previousValue;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.blur();
+      const inputToBlur = activeEditorTarget;
+      closeOverlay({ cancel: true });
+      shouldSkipFocusOpen = true;
+      inputToBlur?.blur();
     }
   });
+
+  overlayInput.addEventListener("blur", () => {
+    closeOverlay();
+  });
+
+  window.addEventListener("resize", updateOverlayPosition);
+  recordsViewport.addEventListener("scroll", updateOverlayPosition);
 
   if (backButton) {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
