@@ -441,7 +441,7 @@ body {
   background-color: #ffffff;
   color: #1a1a1a;
   font-weight: 400;
-  font-size: 16px;
+  font-size: 18px;
   letter-spacing: 0.3px;
   padding: 18px 12px 14px;
   padding-left: var(--records-pad-left);
@@ -594,6 +594,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
