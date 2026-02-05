@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (programInput && episodeInput) {
     const addValidation = (input) => {
-      input.removeAttribute("maxlength");
+      input.maxLength = maxLength;
       const warning = document.createElement("div");
       warning.className = "layout-bar__warning";
       warning.textContent = "Máximo 100 caracteres";
@@ -74,6 +74,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeEditorTarget = null;
   let editorPreviousValue = "";
   let shouldSkipFocusOpen = false;
+  let overlayOverflowAttempted = false;
 
   const editorLayer = document.createElement("div");
   editorLayer.id = "dm-editor-layer";
@@ -82,6 +83,7 @@ document.addEventListener("DOMContentLoaded", () => {
   overlayInput.id = "dm-editor-input";
   overlayInput.type = "text";
   overlayInput.className = "records-list__field";
+  overlayInput.maxLength = maxLength;
 
   const overlayHint = document.createElement("div");
   overlayHint.id = "dm-editor-hint";
@@ -104,14 +106,34 @@ document.addEventListener("DOMContentLoaded", () => {
     author: "",
   });
 
+  const getSelectionLength = (input) => {
+    if (!(input instanceof HTMLInputElement)) {
+      return 0;
+    }
+
+    const selectionStart = input.selectionStart ?? input.value.length;
+    const selectionEnd = input.selectionEnd ?? input.value.length;
+    return Math.max(0, selectionEnd - selectionStart);
+  };
+
+  const updateOverlayHintVisibility = () => {
+    if (!activeEditorTarget) {
+      overlayHint.hidden = true;
+      return;
+    }
+
+    const shouldShowHint = overlayOverflowAttempted && overlayInput.value.length >= maxLength;
+    overlayHint.hidden = !shouldShowHint;
+  };
+
   const syncOverlayValidation = () => {
     if (!activeEditorTarget) {
       return;
     }
-    const isInvalid = overlayInput.value.length > maxLength;
-    overlayInput.classList.toggle("is-error", isInvalid);
-    activeEditorTarget.classList.toggle("is-error", isInvalid);
-    overlayHint.hidden = !isInvalid;
+    const isErrorState = overlayOverflowAttempted && overlayInput.value.length >= maxLength;
+    overlayInput.classList.toggle("is-error", isErrorState);
+    activeEditorTarget.classList.toggle("is-error", isErrorState);
+    updateOverlayHintVisibility();
   };
 
   const updateOverlayPosition = () => {
@@ -157,12 +179,13 @@ document.addEventListener("DOMContentLoaded", () => {
       activeEditorTarget.dispatchEvent(new Event("input", { bubbles: true }));
     }
 
-    const isInvalid = activeEditorTarget.value.length > maxLength;
+    const isInvalid = overlayOverflowAttempted && activeEditorTarget.value.length >= maxLength;
 
     activeEditorTarget.classList.remove("is-editing");
     activeEditorTarget.classList.toggle("is-error", isInvalid);
     overlayInput.classList.remove("is-active", "is-editing", "is-error");
     overlayHint.hidden = true;
+    overlayOverflowAttempted = false;
 
     activeEditorTarget = null;
     editorPreviousValue = "";
@@ -173,9 +196,13 @@ document.addEventListener("DOMContentLoaded", () => {
     editorPreviousValue = input.value;
 
     input.classList.add("is-editing");
+    overlayOverflowAttempted = false;
     overlayInput.value = input.value;
     overlayInput.placeholder = input.placeholder;
     overlayInput.classList.add("is-active", "is-editing");
+    if (overlayInput.value.length < maxLength) {
+      overlayOverflowAttempted = false;
+    }
     syncOverlayValidation();
     updateOverlayPosition();
     overlayInput.focus();
@@ -303,6 +330,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const titleInput = document.createElement("input");
     titleInput.className = "records-list__field dm-input";
     titleInput.type = "text";
+    titleInput.maxLength = maxLength;
     titleInput.value = record.title;
     titleInput.placeholder = "Título";
     titleInput.addEventListener("input", (event) => {
@@ -316,6 +344,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const authorInput = document.createElement("input");
     authorInput.className = "records-list__field dm-input";
     authorInput.type = "text";
+    authorInput.maxLength = maxLength;
     authorInput.value = record.author;
     authorInput.placeholder = "Autor";
     authorInput.addEventListener("input", (event) => {
@@ -583,8 +612,52 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     activeEditorTarget.value = overlayInput.value;
     activeEditorTarget.dispatchEvent(new Event("input", { bubbles: true }));
+    if (overlayInput.value.length < maxLength) {
+      overlayOverflowAttempted = false;
+    }
     syncOverlayValidation();
     updateOverlayPosition();
+  });
+
+  overlayInput.addEventListener("beforeinput", (event) => {
+    if (!activeEditorTarget || event.isComposing) {
+      return;
+    }
+
+    if (!event.inputType.startsWith("insert")) {
+      return;
+    }
+
+    const insertedText = event.data ?? "";
+    const selectedLength = getSelectionLength(overlayInput);
+    const nextLength = overlayInput.value.length - selectedLength + insertedText.length;
+
+    if (nextLength > maxLength) {
+      event.preventDefault();
+      overlayOverflowAttempted = true;
+      syncOverlayValidation();
+    }
+  });
+
+  overlayInput.addEventListener("paste", (event) => {
+    if (!activeEditorTarget) {
+      return;
+    }
+
+    event.preventDefault();
+    const clipboardText = event.clipboardData?.getData("text") ?? "";
+    const selectedLength = getSelectionLength(overlayInput);
+    const available = maxLength - (overlayInput.value.length - selectedLength);
+    const safeAvailable = Math.max(0, available);
+    const allowedText = clipboardText.slice(0, safeAvailable);
+
+    overlayInput.setRangeText(allowedText, overlayInput.selectionStart ?? 0, overlayInput.selectionEnd ?? 0, "end");
+    overlayInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    if (clipboardText.length > allowedText.length) {
+      overlayOverflowAttempted = true;
+      syncOverlayValidation();
+    }
   });
 
   overlayInput.addEventListener("keydown", (event) => {
@@ -639,4 +712,3 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
-
