@@ -354,12 +354,13 @@ body {
     linear-gradient(currentColor 0 0) 0 0 / 100% 3px no-repeat,
     linear-gradient(currentColor 0 0) 0 50% / 100% 3px no-repeat,
     linear-gradient(currentColor 0 0) 0 100% / 100% 3px no-repeat;
-  border-radius: 1px;
+  border-radius: 999px;
 }
 
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
