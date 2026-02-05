@@ -255,11 +255,13 @@ body {
   background-color: #ffffff;
   border-radius: 8px;
   padding: 24px;
+  text-align: center;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
 }
 
 .delete-warning-modal__text {
   margin: 0;
+  text-align: left;
   color: #1a1a1a;
   font-size: 16px;
   line-height: 1.4;
@@ -421,6 +423,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
