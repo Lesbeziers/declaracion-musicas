@@ -348,19 +348,28 @@ body {
 
 .records-list__handle::before {
   content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+
   width: 60%;
   height: 3px;
+
   background-color: currentColor;
   border-radius: 999px;
 
+  transform: translate(-50%, -50%);
+
   box-shadow:
-    0 -6px 0 currentColor,
-    0  6px 0 currentColor;
+    0 calc((var(--records-control-size) / -2) + 1.5px) 0 currentColor,
+    0 calc((var(--records-control-size) /  2) - 1.5px) 0 currentColor;
 }
+
 
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
