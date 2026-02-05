@@ -438,6 +438,28 @@ body {
   color: #1a1a1a;
 }
 
+.records-list__field-cell {
+  position: relative;
+}
+
+.records-list__field {
+  width: 100%;
+  height: 24px;
+  border: 1px solid #bcbcbc;
+  padding: 2px 6px;
+  font: inherit;
+  background-color: #ffffff;
+  color: inherit;
+  outline: none;
+}
+
+.records-list__field.is-editing {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 25;
+}
+
 .records-list__cell--controls {
   --records-control-size: 20px;
   gap: 6px;
@@ -498,4 +520,5 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
