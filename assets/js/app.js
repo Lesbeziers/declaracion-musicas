@@ -336,7 +336,7 @@ document.addEventListener("DOMContentLoaded", () => {
     titleCell.appendChild(titleInput);
     row.appendChild(titleCell);
 
-    const authorCell = document.createElement("div");
+       const authorCell = document.createElement("div");
     authorCell.className = "records-list__cell records-list__field-cell";
     const authorInput = document.createElement("input");
     authorInput.className = "records-list__field dm-input";
@@ -350,11 +350,93 @@ document.addEventListener("DOMContentLoaded", () => {
     authorCell.appendChild(authorInput);
     row.appendChild(authorCell);
 
-    for (let index = 0; index < 8; index += 1) {
-      const cell = document.createElement("div");
-      cell.className = "records-list__cell";
-      row.appendChild(cell);
-    }
+    const performerCell = document.createElement("div");
+    performerCell.className = "records-list__cell records-list__field-cell";
+    const performerInput = document.createElement("input");
+    performerInput.className = "records-list__field dm-input";
+    performerInput.type = "text";
+    performerInput.maxLength = maxLength;
+    performerInput.value = record.performer || "";
+    performerInput.placeholder = "Intérprete";
+    performerInput.addEventListener("input", (event) => {
+      record.performer = event.target.value;
+    });
+    performerCell.appendChild(performerInput);
+    row.appendChild(performerCell);
+
+    const durationCell = document.createElement("div");
+    durationCell.className = "records-list__cell";
+    row.appendChild(durationCell);
+
+    const tcInCell = document.createElement("div");
+    tcInCell.className = "records-list__cell";
+    row.appendChild(tcInCell);
+
+    const tcOutCell = document.createElement("div");
+    tcOutCell.className = "records-list__cell";
+    row.appendChild(tcOutCell);
+
+    const modalityCell = document.createElement("div");
+    modalityCell.className = "records-list__cell records-list__field-cell";
+    const modalitySelect = document.createElement("select");
+    modalitySelect.className = "records-list__field";
+    ["Ambientaciones", "Caretas", "Fondos", "Ráfagas", "Sinfónicos", "Variedades"].forEach((optionLabel) => {
+      const option = document.createElement("option");
+      option.value = optionLabel;
+      option.textContent = optionLabel;
+      modalitySelect.appendChild(option);
+    });
+    modalitySelect.value = record.modality || "Ambientaciones";
+    modalitySelect.addEventListener("change", (event) => {
+      record.modality = event.target.value;
+    });
+    modalityCell.appendChild(modalitySelect);
+    row.appendChild(modalityCell);
+
+    const musicTypeCell = document.createElement("div");
+    musicTypeCell.className = "records-list__cell records-list__field-cell";
+    const musicTypeSelect = document.createElement("select");
+    musicTypeSelect.className = "records-list__field";
+    ["Librería", "Comercial", "Original"].forEach((optionLabel) => {
+      const option = document.createElement("option");
+      option.value = optionLabel;
+      option.textContent = optionLabel;
+      musicTypeSelect.appendChild(option);
+    });
+    musicTypeSelect.value = record.musicType || "Librería";
+    musicTypeSelect.addEventListener("change", (event) => {
+      record.musicType = event.target.value;
+    });
+    musicTypeCell.appendChild(musicTypeSelect);
+    row.appendChild(musicTypeCell);
+
+    const libraryCodeCell = document.createElement("div");
+    libraryCodeCell.className = "records-list__cell records-list__field-cell";
+    const libraryCodeInput = document.createElement("input");
+    libraryCodeInput.className = "records-list__field dm-input";
+    libraryCodeInput.type = "text";
+    libraryCodeInput.maxLength = maxLength;
+    libraryCodeInput.value = record.libraryCode || "";
+    libraryCodeInput.placeholder = "Código de librería";
+    libraryCodeInput.addEventListener("input", (event) => {
+      record.libraryCode = event.target.value;
+    });
+    libraryCodeCell.appendChild(libraryCodeInput);
+    row.appendChild(libraryCodeCell);
+
+    const libraryNameCell = document.createElement("div");
+    libraryNameCell.className = "records-list__cell records-list__field-cell";
+    const libraryNameInput = document.createElement("input");
+    libraryNameInput.className = "records-list__field dm-input";
+    libraryNameInput.type = "text";
+    libraryNameInput.maxLength = maxLength;
+    libraryNameInput.value = record.libraryName || "";
+    libraryNameInput.placeholder = "Nombre de librería";
+    libraryNameInput.addEventListener("input", (event) => {
+      record.libraryName = event.target.value;
+    });
+    libraryNameCell.appendChild(libraryNameInput);
+    row.appendChild(libraryNameCell);
 
     row.addEventListener("dragstart", (event) => {
       draggedRow = row;
@@ -709,4 +791,5 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
