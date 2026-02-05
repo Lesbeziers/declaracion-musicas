@@ -420,6 +420,8 @@ body {
   height: 100%;
   overflow-y: auto;
 }
+.records-list__header,
+.records-list__row,
 .records-list__grid {
   display: grid;
   grid-template-columns: 72px var(--w-titulo) var(--w-autor) var(--w-interprete) var(--w-duracion) var(--w-tc-in) var(--w-tc-out) var(--w-modalidad) var(--w-tipo-musica) var(--w-codigo-libreria) var(--w-nombre-libreria);
@@ -526,7 +528,6 @@ body {
   outline: none;
   box-shadow: none;
 }
-}
 
 #dm-editor-layer {
   position: fixed;
@@ -622,6 +623,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
