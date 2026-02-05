@@ -226,6 +226,10 @@ body {
   background-image: url("../img/ic_menos_hover.svg");
 }
 
+.layout-bar__icon--back {
+  background-image: url("../img/ic_back.svg");
+}
+
 .layout-bar__divider {
   width: 2px;
   height: 28px;
@@ -369,6 +373,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
