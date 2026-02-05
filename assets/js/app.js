@@ -69,10 +69,9 @@ document.addEventListener("DOMContentLoaded", () => {
     checked: false,
   });
 
-const createDeleteWarningModal = () => {
+  const showDeleteWarningModal = () => {
     const overlay = document.createElement("div");
     overlay.className = "delete-warning-modal__overlay";
-    overlay.hidden = true;
 
     const dialog = document.createElement("div");
     dialog.className = "delete-warning-modal";
@@ -93,20 +92,14 @@ const createDeleteWarningModal = () => {
     document.body.appendChild(overlay);
 
     const hide = () => {
-      overlay.hidden = true;
+      closeButton.removeEventListener("click", hide);
+      overlay.remove();
     };
 
     closeButton.addEventListener("click", hide);
 
-    return {
-      show: () => {
-        overlay.hidden = false;
-        closeButton.focus();
-      },
-    };
+    closeButton.focus();
   };
-
-  const deleteWarningModal = createDeleteWarningModal();
 
   const createRecordRow = (record) => {
     const row = document.createElement("div");
@@ -171,7 +164,7 @@ const createDeleteWarningModal = () => {
 
     const hasSelectedRecords = records.some((record) => record.checked);
     if (!hasSelectedRecords) {
-      deleteWarningModal.show();
+      showDeleteWarningModal();
       return;
     }
 
@@ -195,4 +188,3 @@ const createDeleteWarningModal = () => {
   plusButton.addEventListener("click", addEmptyRecord);
   minusButton.addEventListener("click", removeSelectedRecords);
 });
-
