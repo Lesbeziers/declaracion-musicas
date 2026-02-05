@@ -179,10 +179,7 @@ document.addEventListener("DOMContentLoaded", () => {
       activeEditorTarget.dispatchEvent(new Event("input", { bubbles: true }));
     }
 
-    const isInvalid = overlayOverflowAttempted && activeEditorTarget.value.length >= maxLength;
-
-    activeEditorTarget.classList.remove("is-editing");
-    activeEditorTarget.classList.toggle("is-error", isInvalid);
+    activeEditorTarget.classList.remove("is-editing", "is-error");
     overlayInput.classList.remove("is-active", "is-editing", "is-error");
     overlayHint.hidden = true;
     overlayOverflowAttempted = false;
@@ -712,3 +709,4 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
