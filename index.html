@@ -46,12 +46,26 @@
           <div class="layout-bar__controls">
             <span class="layout-bar__title">REGISTROS</span>
             <div class="layout-bar__icons">
-              <button class="layout-bar__icon layout-bar__icon--plus" type="button" aria-label="Añadir"></button>
-              <button class="layout-bar__icon layout-bar__icon--minus" type="button" aria-label="Quitar"></button>
+              <button
+                class="layout-bar__icon layout-bar__icon--plus"
+                type="button"
+                aria-label="Añadir fila"
+                data-tooltip="Añadir fila"
+                title="Añadir fila"
+              ></button>
+              <button
+                class="layout-bar__icon layout-bar__icon--minus"
+                type="button"
+                aria-label="Eliminar fila"
+                data-tooltip="Eliminar fila"
+                title="Eliminar fila"
+              ></button>
               <button
                 class="layout-bar__icon layout-bar__icon--back"
                 type="button"
-                aria-label="Deshacer"
+                aria-label="Anular borrado de filas"
+                data-tooltip="Anular borrado de filas"
+                title="Anular borrado de filas"
               ></button>
             </div>
             <span class="layout-bar__divider" aria-hidden="true"></span>
@@ -87,3 +101,4 @@
     <script src="assets/js/app.js"></script>
   </body>
 </html>
+
