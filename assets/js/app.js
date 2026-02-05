@@ -7,6 +7,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const recordsViewport = document.querySelector(".records-list__viewport");
   const recordsBody = document.querySelector(".records-list__body");
   const maxLength = 100;
+  const textMeasureCanvas = document.createElement("canvas");
+  const textMeasureContext = textMeasureCanvas.getContext("2d");
 
   if (programInput && episodeInput) {
     const addValidation = (input) => {
@@ -79,7 +81,47 @@ document.addEventListener("DOMContentLoaded", () => {
   const createEmptyRecord = () => ({
     id: nextRecordId++,
     checked: false,
+    title: "",
+    author: "",
   });
+
+  const getExpandedInputStyles = (input) => {
+    if (!textMeasureContext) {
+      return null;
+    }
+
+    const computedStyle = window.getComputedStyle(input);
+    textMeasureContext.font = computedStyle.font;
+    const text = input.value || input.placeholder || "";
+    const textWidth = textMeasureContext.measureText(text).width;
+    const horizontalPadding =
+      parseFloat(computedStyle.paddingLeft) +
+      parseFloat(computedStyle.paddingRight) +
+      parseFloat(computedStyle.borderLeftWidth) +
+      parseFloat(computedStyle.borderRightWidth) +
+      24;
+
+    const baseWidth = input.offsetWidth;
+    const viewportRect = recordsViewport.getBoundingClientRect();
+    const cell = input.closest(".records-list__field-cell");
+    if (!cell) {
+      return null;
+    }
+
+    const cellRect = cell.getBoundingClientRect();
+    const maxAllowedByViewport = Math.max(baseWidth, viewportRect.width - 16);
+    const idealWidth = textWidth + horizontalPadding;
+    const width = Math.min(Math.max(idealWidth, baseWidth), Math.min(700, maxAllowedByViewport));
+
+    const minLeft = viewportRect.left + 8 - cellRect.left;
+    const maxLeft = viewportRect.right - 8 - cellRect.left - width;
+    const left = Math.min(Math.max(0, minLeft), maxLeft);
+
+    return {
+      width,
+      left,
+    };
+  };
 
   const showDeleteWarningModal = () => {
     const overlay = document.createElement("div");
@@ -164,7 +206,7 @@ document.addEventListener("DOMContentLoaded", () => {
     cancelButton.focus();
   };
 
-  const createRecordRow = (record) => {
+    const createRecordRow = (record) => {
     const row = document.createElement("div");
     row.className = "records-list__row records-list__grid";
     row.dataset.recordId = String(record.id);
@@ -198,7 +240,35 @@ document.addEventListener("DOMContentLoaded", () => {
     controlsCell.append(checkbox, handle);
     row.appendChild(controlsCell);
 
-    for (let index = 0; index < 10; index += 1) {
+    const titleCell = document.createElement("div");
+    titleCell.className = "records-list__cell records-list__field-cell";
+    const titleInput = document.createElement("input");
+    titleInput.className = "records-list__field";
+    titleInput.type = "text";
+    titleInput.value = record.title;
+    titleInput.maxLength = 200;
+    titleInput.placeholder = "Título";
+    titleInput.addEventListener("input", (event) => {
+      record.title = event.target.value;
+    });
+    titleCell.appendChild(titleInput);
+    row.appendChild(titleCell);
+
+    const authorCell = document.createElement("div");
+    authorCell.className = "records-list__cell records-list__field-cell";
+    const authorInput = document.createElement("input");
+    authorInput.className = "records-list__field";
+    authorInput.type = "text";
+    authorInput.value = record.author;
+    authorInput.maxLength = 200;
+    authorInput.placeholder = "Autor";
+    authorInput.addEventListener("input", (event) => {
+      record.author = event.target.value;
+    });
+    authorCell.appendChild(authorInput);
+    row.appendChild(authorCell);
+
+    for (let index = 0; index < 8; index += 1) {
       const cell = document.createElement("div");
       cell.className = "records-list__cell";
       row.appendChild(cell);
@@ -427,10 +497,56 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  recordsBody.addEventListener("focusin", (event) => {
+    const input = event.target.closest(".records-list__field");
+    if (!input) {
+      return;
+    }
+
+    input.dataset.previousValue = input.value;
+    const styles = getExpandedInputStyles(input);
+    if (!styles) {
+      return;
+    }
+
+    input.classList.add("is-editing");
+    input.style.width = `${styles.width}px`;
+    input.style.left = `${styles.left}px`;
+  });
+
+  recordsBody.addEventListener("focusout", (event) => {
+    const input = event.target.closest(".records-list__field");
+    if (!input) {
+      return;
+    }
+
+    input.classList.remove("is-editing");
+    input.style.width = "";
+    input.style.left = "";
+    delete input.dataset.previousValue;
+  });
+
+  recordsBody.addEventListener("keydown", (event) => {
+    const input = event.target.closest(".records-list__field");
+    if (!input) {
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      input.blur();
+      return;
+    }
+
+    if (event.key === "Escape" && input.dataset.previousValue !== undefined) {
+      event.preventDefault();
+      input.value = input.dataset.previousValue;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.blur();
+    }
+  });
+
   if (backButton) {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
-
-
-
