@@ -50,7 +50,7 @@ body {
   --w-duracion: 110px;
   --w-tc-in: 90px;
   --w-tc-out: 90px;
-  --w-modalidad: 140px;
+  --w-modalidad: 150px;
   --w-tipo-musica: 140px;
   --w-codigo-libreria: 160px;
   --w-nombre-libreria: 170px;
@@ -623,6 +623,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
