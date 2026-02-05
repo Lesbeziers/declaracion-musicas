@@ -9,19 +9,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const maxLength = 100;
   const textMeasureCanvas = document.createElement("canvas");
   const textMeasureContext = textMeasureCanvas.getContext("2d");
-  const gridColumnVars = [
-    "--w-titulo",
-    "--w-autor",
-    "--w-interprete",
-    "--w-duracion",
-    "--w-tc-in",
-    "--w-tc-out",
-    "--w-modalidad",
-    "--w-tipo-musica",
-    "--w-codigo-libreria",
-    "--w-nombre-libreria",
-  ];
-  const controlsColumnWidth = 72;
 
   if (programInput && episodeInput) {
     const addValidation = (input) => {
@@ -110,31 +97,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (backButton) {
       backButton.disabled = !lastDeleteSnapshot;
     }
-  };
-
-    const updateColumnGap = () => {
-    if (!recordsViewport) {
-      return;
-    }
-
-    const computedStyle = window.getComputedStyle(document.documentElement);
-    const columnsWidth = gridColumnVars.reduce((total, variableName) => {
-      const value = Number.parseFloat(computedStyle.getPropertyValue(variableName));
-      return total + (Number.isFinite(value) ? value : 0);
-    }, controlsColumnWidth);
-
-    const numberOfColumns = gridColumnVars.length + 1;
-    const availableWidth = recordsViewport.clientWidth;
-    const rawGap = (availableWidth - columnsWidth) / Math.max(numberOfColumns - 1, 1);
-    const clampedGap = Math.min(28, Math.max(8, rawGap));
-
-    recordsViewport.style.setProperty("--col-gap", `${clampedGap}px`);
-  };
-
-  let updateColumnGapTimeoutId = 0;
-  const debouncedUpdateColumnGap = () => {
-    window.clearTimeout(updateColumnGapTimeoutId);
-    updateColumnGapTimeoutId = window.setTimeout(updateColumnGap, 120);
   };
   
   const createEmptyRecord = () => ({
@@ -659,7 +621,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   addEmptyRecord();
   updateBackButtonState();
-  updateColumnGap();
   plusButton.addEventListener("click", addEmptyRecord);
   minusButton.addEventListener("click", removeSelectedRecords);
 
@@ -834,14 +795,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   window.addEventListener("resize", updateOverlayPosition);
-  window.addEventListener("resize", debouncedUpdateColumnGap);
   recordsViewport.addEventListener("scroll", updateOverlayPosition);
 
   if (backButton) {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
-
-
 
 
