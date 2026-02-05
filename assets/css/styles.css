@@ -42,6 +42,19 @@ body {
   color: #1a1a1a;
 }
 
+:root {
+  --w-titulo: 220px;
+  --w-autor: 180px;
+  --w-interprete: 180px;
+  --w-duracion: 110px;
+  --w-tc-in: 90px;
+  --w-tc-out: 90px;
+  --w-modalidad: 140px;
+  --w-tipo-musica: 140px;
+  --w-codigo-libreria: 160px;
+  --w-nombre-libreria: 170px;
+}
+
 .layout-frame {
   width: 1920px;
   max-width: 100%;
@@ -457,6 +470,46 @@ body {
   filter: none;
 }
 
+.records-list__cell[data-col="titulo"] .records-list__field {
+  width: var(--w-titulo);
+}
+
+.records-list__cell[data-col="autor"] .records-list__field {
+  width: var(--w-autor);
+}
+
+.records-list__cell[data-col="interprete"] .records-list__field {
+  width: var(--w-interprete);
+}
+
+.records-list__cell[data-col="duracion"] .records-list__field {
+  width: var(--w-duracion);
+}
+
+.records-list__cell[data-col="tc_in"] .records-list__field {
+  width: var(--w-tc-in);
+}
+
+.records-list__cell[data-col="tc_out"] .records-list__field {
+  width: var(--w-tc-out);
+}
+
+.records-list__cell[data-col="modalidad"] .records-list__field {
+  width: var(--w-modalidad);
+}
+
+.records-list__cell[data-col="tipo_musica"] .records-list__field {
+  width: var(--w-tipo-musica);
+}
+
+.records-list__cell[data-col="codigo_libreria"] .records-list__field {
+  width: var(--w-codigo-libreria);
+}
+
+.records-list__cell[data-col="nombre_libreria"] .records-list__field {
+  width: var(--w-nombre-libreria);
+}
+
 .records-list__field.is-editing {
   border: 2px solid #31d0f4;
   outline: none;
@@ -566,6 +619,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
