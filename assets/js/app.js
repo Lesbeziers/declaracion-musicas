@@ -101,6 +101,57 @@ document.addEventListener("DOMContentLoaded", () => {
     closeButton.focus();
   };
 
+  const showDeleteConfirmationModal = (selectedCount, onConfirm) => {
+    const overlay = document.createElement("div");
+    overlay.className = "delete-warning-modal__overlay";
+
+    const dialog = document.createElement("div");
+    dialog.className = "delete-warning-modal";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+
+    const text = document.createElement("p");
+    text.className = "delete-warning-modal__text";
+    text.textContent =
+      selectedCount === 1
+        ? "Vas a eliminar 1 fila"
+        : `Vas a eliminar ${selectedCount} filas`;
+
+    const actions = document.createElement("div");
+    actions.className = "delete-warning-modal__actions";
+
+    const okButton = document.createElement("button");
+    okButton.className = "delete-warning-modal__action";
+    okButton.type = "button";
+    okButton.textContent = "OK";
+
+    const cancelButton = document.createElement("button");
+    cancelButton.className = "delete-warning-modal__action";
+    cancelButton.type = "button";
+    cancelButton.textContent = "Cancelar";
+
+    actions.append(okButton, cancelButton);
+    dialog.append(text, actions);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    const hide = () => {
+      okButton.removeEventListener("click", handleConfirm);
+      cancelButton.removeEventListener("click", hide);
+      overlay.remove();
+    };
+
+    const handleConfirm = () => {
+      hide();
+      onConfirm();
+    };
+
+    okButton.addEventListener("click", handleConfirm);
+    cancelButton.addEventListener("click", hide);
+
+    cancelButton.focus();
+  };
+
   const createRecordRow = (record, visualIndex) => {
     const row = document.createElement("div");
     row.className = "records-list__row records-list__grid";
@@ -172,24 +223,27 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const previousScrollTop = recordsViewport.scrollTop;
+    const selectedCount = records.filter((record) => record.checked).length;
 
-    for (let index = records.length - 1; index >= 0; index -= 1) {
-      if (records[index].checked) {
-        records.splice(index, 1);
+    showDeleteConfirmationModal(selectedCount, () => {
+      const previousScrollTop = recordsViewport.scrollTop;
+
+      for (let index = records.length - 1; index >= 0; index -= 1) {
+        if (records[index].checked) {
+          records.splice(index, 1);
+        }
       }
-    }
 
-    if (records.length === 0) {
-      records.unshift(createEmptyRecord());
-    }
+      if (records.length === 0) {
+        records.unshift(createEmptyRecord());
+      }
 
-    renderRecords();
-    recordsViewport.scrollTop = Math.min(previousScrollTop, recordsViewport.scrollHeight);
+      renderRecords();
+      recordsViewport.scrollTop = Math.min(previousScrollTop, recordsViewport.scrollHeight);
+    });
   };
 
   addEmptyRecord();
   plusButton.addEventListener("click", addEmptyRecord);
   minusButton.addEventListener("click", removeSelectedRecords);
 });
-
