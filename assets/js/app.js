@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const episodeInput = document.getElementById("episodeInput");
   const plusButton = document.querySelector(".layout-bar__icon--plus");
   const minusButton = document.querySelector(".layout-bar__icon--minus");
+  const backButton = document.querySelector(".layout-bar__icon--back");
   const recordsViewport = document.querySelector(".records-list__viewport");
   const recordsBody = document.querySelector(".records-list__body");
   const maxLength = 100;
@@ -63,7 +64,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let nextRecordId = 1;
   const records = [];
+  let lastDeleteSnapshot = null;
 
+  const updateBackButtonState = () => {
+    if (backButton) {
+      backButton.disabled = !lastDeleteSnapshot;
+    }
+  };
+  
   const createEmptyRecord = () => ({
     id: nextRecordId++,
     checked: false,
@@ -227,6 +235,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
     showDeleteConfirmationModal(selectedCount, () => {
       const previousScrollTop = recordsViewport.scrollTop;
+      const selectedRowsSnapshot = [];
+
+      records.forEach((record, index) => {
+        if (record.checked) {
+          const row = recordsBody.children[index];
+          selectedRowsSnapshot.push({
+            index,
+            record: { ...record },
+            outerHTML: row ? row.outerHTML : "",
+          });
+        }
+      });
+
+      lastDeleteSnapshot = {
+        rows: selectedRowsSnapshot,
+        createdSafetyRow: false,
+      };
 
       for (let index = records.length - 1; index >= 0; index -= 1) {
         if (records[index].checked) {
@@ -236,14 +261,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (records.length === 0) {
         records.unshift(createEmptyRecord());
+        lastDeleteSnapshot.createdSafetyRow = true;
       }
 
       renderRecords();
       recordsViewport.scrollTop = Math.min(previousScrollTop, recordsViewport.scrollHeight);
+      updateBackButtonState();
     });
   };
 
+  const undoLastDelete = () => {
+    if (!lastDeleteSnapshot) {
+      return;
+    }
+
+    if (lastDeleteSnapshot.createdSafetyRow && records.length === 1) {
+      records.splice(0, 1);
+    }
+
+    lastDeleteSnapshot.rows.forEach(({ index, record }, restoredCount) => {
+      records.splice(Math.min(index + restoredCount, records.length), 0, record);
+      nextRecordId = Math.max(nextRecordId, record.id + 1);
+    });
+
+    lastDeleteSnapshot = null;
+    renderRecords();
+    updateBackButtonState();
+  };
+
   addEmptyRecord();
+  updateBackButtonState();
   plusButton.addEventListener("click", addEmptyRecord);
   minusButton.addEventListener("click", removeSelectedRecords);
+  if (backButton) {
+    backButton.addEventListener("click", undoLastDelete);
+  }
 });
+
