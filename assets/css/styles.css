@@ -43,7 +43,7 @@ body {
 }
 
 :root {
-  --w-controls: 72px;
+  --w-left: 72px;
   --w-titulo: 220px;
   --w-autor: 180px;
   --w-interprete: 180px;
@@ -54,7 +54,9 @@ body {
   --w-tipo-musica: 140px;
   --w-codigo-libreria: 160px;
   --w-nombre-libreria: 170px;
-  --cols: var(--w-controls) var(--w-titulo) var(--w-autor) var(--w-interprete)
+  --col-gap: 12px;
+  --records-pad-left: 12px;
+  --cols: var(--w-left) var(--w-titulo) var(--w-autor) var(--w-interprete)
     var(--w-duracion) var(--w-tc-in) var(--w-tc-out) var(--w-modalidad)
     var(--w-tipo-musica) var(--w-codigo-libreria) var(--w-nombre-libreria);
 }
@@ -412,7 +414,7 @@ body {
   width: 100%;
   max-width: 1920px;
   margin: 0 auto;
-  padding: 0px 64px 32px;
+  padding: 10px 64px 22px;
   display: flex;
   flex: 1;
 }
@@ -424,7 +426,7 @@ body {
 .records-list__grid {
   display: grid;
   grid-template-columns: var(--cols);
-  column-gap: 12px;
+  column-gap: var(--col-gap);
   align-items: center;
 }␊
 
@@ -438,12 +440,14 @@ body {
   font-size: 14px;
   letter-spacing: 0.3px;
   padding: 18px 12px 14px;
+  padding-left: var(--records-pad-left);
   border-bottom: 1px solid #e4e4e4;
 }
 
 .records-list__row {
   background-color: #e8e8e8;
   padding: 16px 12px;
+  padding-left: var(--records-pad-left);
   border-bottom: 1px solid #d6d6d6;
   margin-bottom: 3px;
 }
@@ -623,6 +627,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
