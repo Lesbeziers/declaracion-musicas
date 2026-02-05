@@ -324,6 +324,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const titleCell = document.createElement("div");
     titleCell.className = "records-list__cell records-list__field-cell";
+    titleCell.dataset.col = "titulo";
     const titleInput = document.createElement("input");
     titleInput.className = "records-list__field dm-input";
     titleInput.type = "text";
@@ -336,8 +337,9 @@ document.addEventListener("DOMContentLoaded", () => {
     titleCell.appendChild(titleInput);
     row.appendChild(titleCell);
 
-       const authorCell = document.createElement("div");
+    const authorCell = document.createElement("div");
     authorCell.className = "records-list__cell records-list__field-cell";
+    authorCell.dataset.col = "autor";
     const authorInput = document.createElement("input");
     authorInput.className = "records-list__field dm-input";
     authorInput.type = "text";
@@ -345,13 +347,14 @@ document.addEventListener("DOMContentLoaded", () => {
     authorInput.value = record.author;
     authorInput.placeholder = "Autor";
     authorInput.addEventListener("input", (event) => {
-      record.author = event.target.value;
+    record.author = event.target.value;
     });
     authorCell.appendChild(authorInput);
     row.appendChild(authorCell);
 
     const performerCell = document.createElement("div");
     performerCell.className = "records-list__cell records-list__field-cell";
+    performerCell.dataset.col = "interprete";
     const performerInput = document.createElement("input");
     performerInput.className = "records-list__field dm-input";
     performerInput.type = "text";
@@ -366,18 +369,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const durationCell = document.createElement("div");
     durationCell.className = "records-list__cell";
+    durationCell.dataset.col = "duracion";
     row.appendChild(durationCell);
 
     const tcInCell = document.createElement("div");
     tcInCell.className = "records-list__cell";
+    tcInCell.dataset.col = "tc_in";
     row.appendChild(tcInCell);
 
     const tcOutCell = document.createElement("div");
     tcOutCell.className = "records-list__cell";
+    tcOutCell.dataset.col = "tc_out";
     row.appendChild(tcOutCell);
 
     const modalityCell = document.createElement("div");
     modalityCell.className = "records-list__cell records-list__field-cell";
+    modalityCell.dataset.col = "modalidad";
     const modalitySelect = document.createElement("select");
     modalitySelect.className = "records-list__field";
     ["Ambientaciones", "Caretas", "Fondos", "Ráfagas", "Sinfónicos", "Variedades"].forEach((optionLabel) => {
@@ -395,6 +402,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const musicTypeCell = document.createElement("div");
     musicTypeCell.className = "records-list__cell records-list__field-cell";
+    musicTypeCell.dataset.col = "tipo_musica";
     const musicTypeSelect = document.createElement("select");
     musicTypeSelect.className = "records-list__field";
     ["Librería", "Comercial", "Original"].forEach((optionLabel) => {
@@ -412,6 +420,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const libraryCodeCell = document.createElement("div");
     libraryCodeCell.className = "records-list__cell records-list__field-cell";
+    libraryCodeCell.dataset.col = "codigo_libreria";
     const libraryCodeInput = document.createElement("input");
     libraryCodeInput.className = "records-list__field dm-input";
     libraryCodeInput.type = "text";
@@ -426,6 +435,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const libraryNameCell = document.createElement("div");
     libraryNameCell.className = "records-list__cell records-list__field-cell";
+    libraryNameCell.dataset.col = "nombre_libreria";
     const libraryNameInput = document.createElement("input");
     libraryNameInput.className = "records-list__field dm-input";
     libraryNameInput.type = "text";
@@ -791,5 +801,6 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
