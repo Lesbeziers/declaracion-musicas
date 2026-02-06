@@ -198,11 +198,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const rect = activeTimeCell.getBoundingClientRect();
-    activeTimeOverlay.style.top = `${rect.top}px`;
-    activeTimeOverlay.style.left = `${rect.left}px`;
-    activeTimeOverlay.style.width = `${rect.width}px`;
-    activeTimeOverlay.style.height = `${rect.height}px`;
-    activeTimeOverlay.style.setProperty("--overlay-h", `${rect.height}px`);
+    const panel = activeTimeOverlay.querySelector(".time-panel");
+    if (!panel) {
+      return;
+    }
+    const panelWidth = panel.getBoundingClientRect().width || rect.width;
+    const anchorCenterX = rect.left + rect.width / 2;
+    let left = Math.round(anchorCenterX - panelWidth / 2);
+    const margin = 8;
+    left = Math.max(margin, Math.min(left, window.innerWidth - panelWidth - margin));
+    activeTimeOverlay.style.top = `${Math.round(rect.top)}px`;
+    activeTimeOverlay.style.left = `${left}px`;
   };
 
   const removeTimeOverlayListeners = () => {
@@ -259,26 +265,28 @@ document.addEventListener("DOMContentLoaded", () => {
     const overlay = document.createElement("div");
     overlay.className = "time-overlay";
     overlay.innerHTML = `
-      <div class="time-spinner" role="dialog" aria-label="Editor de tiempo">
-        <div class="time-col" data-unit="hh">
-          <button class="time-btn time-btn--up" type="button" aria-label="Subir horas">▲</button>
-          <div class="time-val" data-unit="hh">00</div>
-          <button class="time-btn time-btn--down" type="button" aria-label="Bajar horas">▼</button>
-          <div class="time-lab">HH</div>
-        </div>
-
-        <div class="time-col" data-unit="mm">
-          <button class="time-btn time-btn--up" type="button" aria-label="Subir minutos">▲</button>
-          <div class="time-val" data-unit="mm">00</div>
-          <button class="time-btn time-btn--down" type="button" aria-label="Bajar minutos">▼</button>
-          <div class="time-lab">MM</div>
-        </div>
-
-        <div class="time-col" data-unit="ss">
-          <button class="time-btn time-btn--up" type="button" aria-label="Subir segundos">▲</button>
-          <div class="time-val" data-unit="ss">00</div>
-          <button class="time-btn time-btn--down" type="button" aria-label="Bajar segundos">▼</button>
-          <div class="time-lab">SS</div>
+      <div class="time-panel">
+        <div class="time-spinner" role="dialog" aria-label="Editor de tiempo">
+          <div class="time-col" data-unit="hh">
+            <button class="time-btn time-btn--up" type="button" aria-label="Subir horas"></button>
+            <div class="time-val" data-unit="hh">00</div>
+            <button class="time-btn time-btn--down" type="button" aria-label="Bajar horas"></button>
+            <div class="time-lab">HH</div>
+          </div>
+          <div class="time-sep" aria-hidden="true">:</div>
+          <div class="time-col" data-unit="mm">
+            <button class="time-btn time-btn--up" type="button" aria-label="Subir minutos"></button>
+            <div class="time-val" data-unit="mm">00</div>
+            <button class="time-btn time-btn--down" type="button" aria-label="Bajar minutos"></button>
+            <div class="time-lab">MM</div>
+          </div>
+          <div class="time-sep" aria-hidden="true">:</div>
+          <div class="time-col" data-unit="ss">
+            <button class="time-btn time-btn--up" type="button" aria-label="Subir segundos"></button>
+            <div class="time-val" data-unit="ss">00</div>
+            <button class="time-btn time-btn--down" type="button" aria-label="Bajar segundos"></button>
+            <div class="time-lab">SS</div>
+          </div>
         </div>
       </div>
     `;
@@ -1119,6 +1127,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
