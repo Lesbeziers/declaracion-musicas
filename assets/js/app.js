@@ -104,6 +104,8 @@ document.addEventListener("DOMContentLoaded", () => {
     checked: false,
     title: "",
     author: "",
+    tcIn: "",
+    tcOut: "",
   });
 
   const getSelectionLength = (input) => {
@@ -373,13 +375,21 @@ document.addEventListener("DOMContentLoaded", () => {
     row.appendChild(durationCell);
 
     const tcInCell = document.createElement("div");
-    tcInCell.className = "records-list__cell";
+    tcInCell.className = "records-list__cell records-list__cell--time";
     tcInCell.dataset.col = "tc_in";
+    tcInCell.dataset.field = "tcIn";
+    tcInCell.dataset.role = "time-cell";
+    tcInCell.tabIndex = 0;
+    tcInCell.textContent = record.tcIn ? String(record.tcIn) : "";
     row.appendChild(tcInCell);
 
     const tcOutCell = document.createElement("div");
-    tcOutCell.className = "records-list__cell";
+    tcOutCell.className = "records-list__cell records-list__cell--time";
     tcOutCell.dataset.col = "tc_out";
+    tcOutCell.dataset.field = "tcOut";
+    tcOutCell.dataset.role = "time-cell";
+    tcOutCell.tabIndex = 0;
+    tcOutCell.textContent = record.tcOut ? String(record.tcOut) : "";
     row.appendChild(tcOutCell);
 
     const modalityCell = document.createElement("div");
@@ -695,6 +705,25 @@ document.addEventListener("DOMContentLoaded", () => {
     input.focus();
   });
 
+  recordsBody.addEventListener("click", (event) => {
+    const timeCell = event.target.closest('[data-role="time-cell"]');
+    if (!timeCell) {
+      return;
+    }
+    console.debug("Time cell activated", timeCell.dataset.field);
+  });
+
+  recordsBody.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    const timeCell = event.target.closest('[data-role="time-cell"]');
+    if (!timeCell) {
+      return;
+    }
+    console.debug("Time cell activated", timeCell.dataset.field);
+  });
+
   overlayInput.addEventListener("input", () => {
     if (!activeEditorTarget) {
       return;
@@ -801,5 +830,6 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
