@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const maxLength = 100;
   const textMeasureCanvas = document.createElement("canvas");
   const textMeasureContext = textMeasureCanvas.getContext("2d");
-  const TIME_PLACEHOLDER = "--:--:--";
+  const TIME_PLACEHOLDER = "00:00:00";
 
   if (programInput && episodeInput) {
     const addValidation = (input) => {
@@ -1173,6 +1173,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
