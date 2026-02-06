@@ -497,11 +497,34 @@ body {
   font-size: inherit;
 }
 
+.time-overlay__editor {
+  padding: 6px 8px;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+}
+
+.time-part {
+  min-width: 2ch;
+  text-align: center;
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+
+.time-part.is-active {
+  outline: 2px solid rgba(0, 0, 0, 0.25);
+}
+
+.time-sep {
+  opacity: 0.7;
+}
+
 .time-overlay__placeholder {
   padding: 6px 8px;
   color: #666;
   pointer-events: none;
 }
+
 
 .records-list__field-cell {
   position: relative;
@@ -630,5 +653,6 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
