@@ -501,7 +501,7 @@ body {
   border: 1px solid #bdbdbd;
   border-radius: 2px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  padding: 10px 12px;
+  padding: 8px 10px;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
@@ -512,6 +512,7 @@ body {
 .time-spinner {
   display: flex;
   align-items: center;
+  gap: 4px;
   user-select: none;
 }
 
@@ -519,7 +520,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
 }
 
 .time-btn {
@@ -528,8 +529,8 @@ body {
   cursor: pointer;
   line-height: 1;
   padding: 0;
-  height: 14px;
-  width: 18px;
+  height: 12px;
+  width: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -561,15 +562,17 @@ body {
 }
 
 .time-lab {
-  margin-top: 4px;
-  font-size: 12px;
+  margin-top: 2px;
+  font-size: 11px;
   opacity: 0.8;
 }
 
 .time-sep {
-  margin: 0 10px;
+  margin: 0 6px;
   font-size: 22px;
   line-height: 1;
+  align-self: center;
+  transform: translateY(-2px);
   user-select: none;
   pointer-events: none;
 }
@@ -593,7 +596,7 @@ body {
   border: 1px solid #bdbdbd;
   border-radius: 2px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  padding: 10px 12px;
+  padding: 8px 10px;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
@@ -604,6 +607,7 @@ body {
 .time-spinner {
   display: flex;
   align-items: center;
+  gap: 4px;
   user-select: none;
 }
 
@@ -611,7 +615,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
 }
 
 .time-btn {
@@ -620,8 +624,8 @@ body {
   cursor: pointer;
   line-height: 1;
   padding: 0;
-  height: 14px;
-  width: 18px;
+  height: 12px;
+  width: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -653,15 +657,17 @@ body {
 }
 
 .time-lab {
-  margin-top: 4px;
-  font-size: 12px;
+  margin-top: 2px;
+  font-size: 11px;
   opacity: 0.8;
 }
 
 .time-sep {
-  margin: 0 10px;
+  margin: 0 6px;
   font-size: 22px;
   line-height: 1;
+  align-self: center;
+  transform: translateY(-2px);
   user-select: none;
   pointer-events: none;
 }
@@ -685,7 +691,7 @@ body {
   border: 1px solid #bdbdbd;
   border-radius: 2px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  padding: 10px 12px;
+  padding: 8px 10px;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
@@ -696,6 +702,7 @@ body {
 .time-spinner {
   display: flex;
   align-items: center;
+  gap: 4px;
   user-select: none;
 }
 
@@ -703,7 +710,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
 }
 
 .time-btn {
@@ -712,8 +719,8 @@ body {
   cursor: pointer;
   line-height: 1;
   padding: 0;
-  height: 14px;
-  width: 18px;
+  height: 12px;
+  width: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -745,15 +752,17 @@ body {
 }
 
 .time-lab {
-  margin-top: 4px;
-  font-size: 12px;
+  margin-top: 2px;
+  font-size: 11px;
   opacity: 0.8;
 }
 
 .time-sep {
-  margin: 0 10px;
+  margin: 0 6px;
   font-size: 22px;
   line-height: 1;
+  align-self: center;
+  transform: translateY(-2px);
   user-select: none;
   pointer-events: none;
 }
@@ -886,15 +895,6 @@ body {
     0 calc((var(--records-control-size) /  2) - 1.5px) 0 currentColor;
 }
 
-
 .records-list__handle:hover {
   color: #333333;
 }
-
-
-
-
-
-
-
-
