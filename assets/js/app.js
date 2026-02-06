@@ -721,7 +721,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if (record.tcIn) {
       tcInCell.dataset.timeValue = String(record.tcIn);
     }
+    if (record.tcIn) {
+      tcInCell.dataset.timeValue = String(record.tcIn);
+    }
     row.appendChild(tcInCell);
+
+    const durationCell = document.createElement("div");
+    durationCell.className = "records-list__cell";
+    durationCell.dataset.col = "duracion";
+    const durationValue = calculateDuration(record.tcIn, record.tcOut);
+    record.duration = durationValue;
+    durationCell.textContent = getTimeDisplayValue(durationValue);
+    row.appendChild(durationCell);
+    
     const tcOutCell = document.createElement("div");
     tcOutCell.className = "records-list__cell records-list__cell--time";
     tcOutCell.dataset.col = "tc_out";
@@ -733,14 +745,6 @@ document.addEventListener("DOMContentLoaded", () => {
       tcOutCell.dataset.timeValue = String(record.tcOut);
     }
     row.appendChild(tcOutCell);
-
-    const durationCell = document.createElement("div");
-    durationCell.className = "records-list__cell";
-    durationCell.dataset.col = "duracion";
-    const durationValue = calculateDuration(record.tcIn, record.tcOut);
-    record.duration = durationValue;
-    durationCell.textContent = getTimeDisplayValue(durationValue);
-    row.appendChild(durationCell);
 
     const modalityCell = document.createElement("div");
     modalityCell.className = "records-list__cell records-list__field-cell";
@@ -1213,6 +1217,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
