@@ -375,6 +375,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const finalValue = ["hh", "mm", "ss"].map((unit) => normalize2(timeState[unit])).join(":");
       activeTimeCell.textContent = finalValue;
       activeTimeCell.dataset.timeValue = finalValue;
+      updateRecordTimeValue(activeTimeCell, finalValue);
       closeTimeOverlay();
     };
 
@@ -686,8 +687,10 @@ document.addEventListener("DOMContentLoaded", () => {
     tcInCell.dataset.role = "time-cell";
     tcInCell.tabIndex = 0;
     tcInCell.textContent = record.tcIn ? String(record.tcIn) : "";
+    if (record.tcIn) {
+      tcInCell.dataset.timeValue = String(record.tcIn);
+    }
     row.appendChild(tcInCell);
-
     const tcOutCell = document.createElement("div");
     tcOutCell.className = "records-list__cell records-list__cell--time";
     tcOutCell.dataset.col = "tc_out";
@@ -695,6 +698,9 @@ document.addEventListener("DOMContentLoaded", () => {
     tcOutCell.dataset.role = "time-cell";
     tcOutCell.tabIndex = 0;
     tcOutCell.textContent = record.tcOut ? String(record.tcOut) : "";
+    if (record.tcOut) {
+      tcOutCell.dataset.timeValue = String(record.tcOut);
+    }
     row.appendChild(tcOutCell);
 
     const modalityCell = document.createElement("div");
@@ -844,6 +850,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const updateMinusButtonState = () => {
     minusButton.disabled = records.length <= 1;
+  };
+
+  const updateRecordTimeValue = (cell, value) => {
+    if (!cell) {
+      return;
+    }
+    const row = cell.closest(".records-list__row");
+    const recordId = Number(row?.dataset.recordId);
+    if (!recordId) {
+      return;
+    }
+    const record = records.find((entry) => entry.id === recordId);
+    const field = cell.dataset.field;
+    if (!record || !field) {
+      return;
+    }
+    record[field] = value;
   };
   
   const renderRecords = () => {
@@ -1143,6 +1166,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
