@@ -57,7 +57,7 @@ body {
   --col-gap: 12px;
   --records-pad-left: 12px;
   --cols: var(--w-left) var(--w-titulo) var(--w-autor) var(--w-interprete)
-    var(--w-tc-in) var(--w-tc-out) var(--w-duracion) var(--w-modalidad)
+    var(--w-tc-in) var(--w-duracion) var(--w-tc-out) var(--w-modalidad)
     var(--w-tipo-musica) var(--w-codigo-libreria) var(--w-nombre-libreria);
 }
 
@@ -729,6 +729,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
