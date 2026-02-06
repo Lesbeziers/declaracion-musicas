@@ -90,8 +90,17 @@ document.addEventListener("DOMContentLoaded", () => {
   overlayHint.textContent = "Máximo 100 caracteres";
   overlayHint.hidden = true;
 
-  editorLayer.append(overlayInput, overlayHint);
+ editorLayer.append(overlayInput, overlayHint);
   document.body.appendChild(editorLayer);
+
+  const timeOverlayRoot =
+    document.getElementById("time-overlay-root") || (() => {
+      const root = document.createElement("div");
+      root.id = "time-overlay-root";
+      root.setAttribute("aria-hidden", "true");
+      document.body.appendChild(root);
+      return root;
+    })();
 
   const updateBackButtonState = () => {
     if (backButton) {
@@ -171,11 +180,91 @@ document.addEventListener("DOMContentLoaded", () => {
     overlayHint.style.top = `${inputRect.bottom + 4}px`;
   };
 
+  let activeTimeCell = null;
+  let activeTimeOverlay = null;
+  let timeOverlayListeners = null;
+
+  const updateTimeOverlayPosition = () => {
+    if (!activeTimeCell || !activeTimeOverlay) {
+      return;
+    }
+
+    const rect = activeTimeCell.getBoundingClientRect();
+    activeTimeOverlay.style.top = `${rect.top}px`;
+    activeTimeOverlay.style.left = `${rect.left}px`;
+    activeTimeOverlay.style.width = `${rect.width}px`;
+  };
+
+  const removeTimeOverlayListeners = () => {
+    if (!timeOverlayListeners) {
+      return;
+    }
+
+    const { handleKeydown, handlePointerDown, handleResize, handleScroll } = timeOverlayListeners;
+    document.removeEventListener("keydown", handleKeydown);
+    document.removeEventListener("mousedown", handlePointerDown);
+    window.removeEventListener("resize", handleResize);
+    recordsViewport.removeEventListener("scroll", handleScroll);
+    timeOverlayListeners = null;
+  };
+
+  const closeTimeOverlay = () => {
+    if (!activeTimeOverlay) {
+      return;
+    }
+
+    activeTimeOverlay.remove();
+    activeTimeOverlay = null;
+    activeTimeCell = null;
+    removeTimeOverlayListeners();
+  };
+
+  const openTimeOverlay = (cell) => {
+    if (!cell || !timeOverlayRoot) {
+      return;
+    }
+
+    closeTimeOverlay();
+    activeTimeCell = cell;
+
+    const overlay = document.createElement("div");
+    overlay.className = "time-overlay";
+    overlay.innerHTML = '<div class="time-overlay__placeholder">HH:MM:SS</div>';
+    timeOverlayRoot.appendChild(overlay);
+    activeTimeOverlay = overlay;
+    updateTimeOverlayPosition();
+
+    const handleKeydown = (event) => {
+      if (event.key === "Escape") {
+        closeTimeOverlay();
+      }
+    };
+
+    const handlePointerDown = (event) => {
+      if (!activeTimeOverlay) {
+        return;
+      }
+      const target = event.target;
+      if (activeTimeOverlay.contains(target)) {
+        return;
+      }
+      closeTimeOverlay();
+    };
+
+    const handleResize = () => updateTimeOverlayPosition();
+    const handleScroll = () => updateTimeOverlayPosition();
+
+    timeOverlayListeners = { handleKeydown, handlePointerDown, handleResize, handleScroll };
+    document.addEventListener("keydown", handleKeydown);
+    document.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("resize", handleResize);
+    recordsViewport.addEventListener("scroll", handleScroll);
+  };
+
   const closeOverlay = ({ cancel = false } = {}) => {
     if (!activeEditorTarget) {
       return;
     }
-
     if (cancel) {
       activeEditorTarget.value = editorPreviousValue;
       activeEditorTarget.dispatchEvent(new Event("input", { bubbles: true }));
@@ -710,18 +799,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!timeCell) {
       return;
     }
-    console.debug("Time cell activated", timeCell.dataset.field);
+    openTimeOverlay(timeCell);
   });
-
+␊
   recordsBody.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") {
+    if (event.key !== "Enter") {
       return;
     }
     const timeCell = event.target.closest('[data-role="time-cell"]');
     if (!timeCell) {
       return;
     }
-    console.debug("Time cell activated", timeCell.dataset.field);
+    openTimeOverlay(timeCell);
   });
 
   overlayInput.addEventListener("input", () => {
@@ -830,6 +919,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
