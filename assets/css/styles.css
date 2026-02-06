@@ -204,6 +204,14 @@ body {
   white-space: nowrap;
 }
 
+.layout-bar__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  white-space: nowrap;
+}
+
 .layout-bar__title {
   color: #ffffff;
   font-size: 14px;
@@ -729,6 +737,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
