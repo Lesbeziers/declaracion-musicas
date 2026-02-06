@@ -495,15 +495,18 @@ body {
   z-index: 9999;
   font-family: inherit;
   font-size: inherit;
+  height: var(--overlay-h, auto);
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
 }
 
 .time-overlay__editor {
-  padding: 6px 8px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
   user-select: none;
 }
-
 .time-part {
   min-width: 2ch;
   text-align: center;
@@ -512,7 +515,8 @@ body {
 }
 
 .time-part.is-active {
-  outline: 2px solid rgba(0, 0, 0, 0.25);
+  outline: 2px solid #31d0f4;
+  outline-offset: 0;
 }
 
 .time-sep {
@@ -653,6 +657,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
