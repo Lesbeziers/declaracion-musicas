@@ -453,7 +453,7 @@ document.addEventListener("DOMContentLoaded", () => {
       handleResize,
       handleScroll,
       handleSpinnerClick,
-    };␊
+    };
     document.addEventListener("keydown", handleKeydown);
     document.addEventListener("mousedown", handlePointerDown);
     window.addEventListener("resize", handleResize);
@@ -1119,6 +1119,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
