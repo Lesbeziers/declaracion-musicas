@@ -448,6 +448,11 @@ body {
   border-bottom: 1px solid #e4e4e4;
 }
 
+.records-list__header .records-list__cell {
+  justify-content: center;
+  text-align: center;
+}
+
 .records-list__row {
   display: grid;
   grid-template-columns: var(--cols);
@@ -712,6 +717,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
