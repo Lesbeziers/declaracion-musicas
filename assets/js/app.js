@@ -801,7 +801,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     openTimeOverlay(timeCell);
   });
-␊
+
   recordsBody.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") {
       return;
@@ -919,6 +919,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
