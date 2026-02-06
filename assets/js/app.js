@@ -1029,6 +1029,7 @@ document.addEventListener("DOMContentLoaded", () => {
   recordsBody.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") {
       return;
+    }
     const timeCell = event.target.closest('[data-role="time-cell"]');
     if (!timeCell) {
       return;
@@ -1142,6 +1143,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
