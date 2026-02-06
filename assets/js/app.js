@@ -197,6 +197,8 @@ document.addEventListener("DOMContentLoaded", () => {
     activeTimeOverlay.style.top = `${rect.top}px`;
     activeTimeOverlay.style.left = `${rect.left}px`;
     activeTimeOverlay.style.width = `${rect.width}px`;
+    activeTimeOverlay.style.height = `${rect.height}px`;
+    activeTimeOverlay.style.setProperty("--overlay-h", `${rect.height}px`);
   };
 
   const removeTimeOverlayListeners = () => {
@@ -350,6 +352,15 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const handleKeydown = (event) => {
+      if (event.key === "Tab") {
+        event.preventDefault();
+        const order = ["hh", "mm", "ss"];
+        const currentIndex = order.indexOf(activeTimePart);
+        const direction = event.shiftKey ? -1 : 1;
+        const nextIndex = (currentIndex + direction + order.length) % order.length;
+        setActivePart(order[nextIndex]);
+        return;
+      }
       if (event.key === "Escape") {
         closeTimeOverlay();
         return;
@@ -1049,6 +1060,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
