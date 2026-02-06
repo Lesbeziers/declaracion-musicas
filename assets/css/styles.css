@@ -47,7 +47,7 @@ body {
   --w-titulo: 220px;
   --w-autor: 180px;
   --w-interprete: 180px;
-  --w-duracion: 110px;
+  --w-duracion: 80px;
   --w-tc-in: 80px;
   --w-tc-out: 80px;
   --w-modalidad: 150px;
@@ -476,6 +476,13 @@ body {
   color: #1a1a1a;
 }
 
+.records-list__row .records-list__cell[data-col="duracion"],
+.records-list__row .records-list__cell[data-col="tc_in"],
+.records-list__row .records-list__cell[data-col="tc_out"] {
+  justify-content: center;
+  text-align: center;
+}
+
 .records-list__cell--time {
   width: 100%;
   height: 24px;
@@ -717,6 +724,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
