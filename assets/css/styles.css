@@ -485,6 +485,24 @@ body {
   border: 2px solid #31d0f4;
 }
 
+.time-overlay {
+  position: fixed;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #bdbdbd;
+  border-radius: 2px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 9999;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.time-overlay__placeholder {
+  padding: 6px 8px;
+  color: #666;
+  pointer-events: none;
+}
+
 .records-list__field-cell {
   position: relative;
 }
@@ -612,4 +630,5 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
