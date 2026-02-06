@@ -567,7 +567,7 @@ body {
   position: absolute;
   top: 50%;
   right: -4px;
-  transform: translateY(-50%);
+  transform: translateY(calc(-50% - 3px));
   color: currentColor;
   line-height: 1;
 }
@@ -712,4 +712,5 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
