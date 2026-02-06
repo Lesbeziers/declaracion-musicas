@@ -258,6 +258,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    if (activeTimeCell === cell) {
+      return;
+    }
+
     closeTimeOverlay();
     activeTimeCell = cell;
     prevValueString = cell.dataset.timeValue || cell.textContent?.trim() || "";
@@ -1014,10 +1018,17 @@ document.addEventListener("DOMContentLoaded", () => {
     openTimeOverlay(timeCell);
   });
 
+  recordsBody.addEventListener("focusin", (event) => {
+    const timeCell = event.target.closest('[data-role="time-cell"]');
+    if (!timeCell) {
+      return;
+    }
+    openTimeOverlay(timeCell);
+  });
+
   recordsBody.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") {
       return;
-    }
     const timeCell = event.target.closest('[data-role="time-cell"]');
     if (!timeCell) {
       return;
@@ -1131,6 +1142,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
