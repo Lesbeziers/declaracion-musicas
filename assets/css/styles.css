@@ -462,7 +462,6 @@ body {
 
 .drag-placeholder {
   background-color: #e6f7fb;
-  border: 1px dashed #31d0f4;
 }
 
 .records-list__cell {
@@ -599,18 +598,3 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
