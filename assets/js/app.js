@@ -254,6 +254,9 @@ document.addEventListener("DOMContentLoaded", () => {
     prevValueString = "";
   };
 
+  const isTimeString = (value) => /^\d{2}:\d{2}:\d{2}$/.test(value);
+  const getTimeDisplayValue = (value) => (value ? String(value) : TIME_PLACEHOLDER);
+
   const openTimeOverlay = (cell) => {
     if (!cell || !timeOverlayRoot) {
       return;
@@ -265,7 +268,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     closeTimeOverlay();
     activeTimeCell = cell;
-    prevValueString = cell.dataset.timeValue || cell.textContent?.trim() || "";
+    const rawText = cell.textContent?.trim() || "";
+    prevValueString =
+      cell.dataset.timeValue || (isTimeString(rawText) ? rawText : "");
 
     const overlay = document.createElement("div");
     overlay.className = "time-overlay";
@@ -384,10 +389,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!activeTimeCell) {
         return;
       }
-      activeTimeCell.textContent = prevValueString;
       if (prevValueString) {
+        activeTimeCell.textContent = prevValueString;
         activeTimeCell.dataset.timeValue = prevValueString;
       } else {
+        activeTimeCell.textContent = TIME_PLACEHOLDER;
         delete activeTimeCell.dataset.timeValue;
       }
       closeTimeOverlay();
@@ -687,7 +693,7 @@ document.addEventListener("DOMContentLoaded", () => {
     tcInCell.dataset.field = "tcIn";
     tcInCell.dataset.role = "time-cell";
     tcInCell.tabIndex = 0;
-    tcInCell.textContent = record.tcIn ? String(record.tcIn) : "";
+    tcInCell.textContent = getTimeDisplayValue(record.tcIn);
     if (record.tcIn) {
       tcInCell.dataset.timeValue = String(record.tcIn);
     }
@@ -698,7 +704,7 @@ document.addEventListener("DOMContentLoaded", () => {
     tcOutCell.dataset.field = "tcOut";
     tcOutCell.dataset.role = "time-cell";
     tcOutCell.tabIndex = 0;
-    tcOutCell.textContent = record.tcOut ? String(record.tcOut) : "";
+    tcOutCell.textContent = getTimeDisplayValue(record.tcOut);
     if (record.tcOut) {
       tcOutCell.dataset.timeValue = String(record.tcOut);
     }
@@ -1167,6 +1173,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
