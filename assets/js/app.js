@@ -354,7 +354,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     };
 
-    const adjustActiveUnit = (unit, delta) => {
+    const adjustActiveUnit = (delta) => {
+      const unit = timeState.activeUnit;
+      if (!unit) {
+        return;
+      }
       timeState[unit] = clampUnitValue(unit, timeState[unit] + delta);
       timeState.digitBuffer = "";
       renderSpinnerState();
@@ -410,7 +414,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (button) {
         setActiveUnit(unit);
         const isUp = button.classList.contains("time-btn--up");
-        adjustActiveUnit(unit, isUp ? 1 : -1);
+        adjustActiveUnit(isUp ? 1 : -1);
         return;
       }
       if (target.closest(".time-val") || col) {
@@ -1127,6 +1131,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
