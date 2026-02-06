@@ -115,8 +115,8 @@ document.addEventListener("DOMContentLoaded", () => {
     title: "",
     author: "",
     tcIn: "",
-    tcOut: "",
     duration: "",
+    tcOut: "",
   });
 
   const getSelectionLength = (input) => {
@@ -721,9 +721,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (record.tcIn) {
       tcInCell.dataset.timeValue = String(record.tcIn);
     }
-    if (record.tcIn) {
-      tcInCell.dataset.timeValue = String(record.tcIn);
-    }
     row.appendChild(tcInCell);
 
     const durationCell = document.createElement("div");
@@ -1217,6 +1214,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
