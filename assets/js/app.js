@@ -116,6 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
     author: "",
     tcIn: "",
     tcOut: "",
+    duration: "",
   });
 
   const getSelectionLength = (input) => {
@@ -256,6 +257,34 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const isTimeString = (value) => /^\d{2}:\d{2}:\d{2}$/.test(value);
   const getTimeDisplayValue = (value) => (value ? String(value) : TIME_PLACEHOLDER);
+
+  const parseTimeToSeconds = (value) => {
+    if (!isTimeString(value)) {
+      return null;
+    }
+    const [hours, minutes, seconds] = value.split(":").map((part) => Number.parseInt(part, 10));
+    if ([hours, minutes, seconds].some((part) => Number.isNaN(part))) {
+      return null;
+    }
+    return hours * 3600 + minutes * 60 + seconds;
+  };
+
+  const formatSecondsAsTime = (totalSeconds) => {
+    const safeSeconds = Math.max(0, totalSeconds);
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
+    return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
+  };
+
+  const calculateDuration = (tcIn, tcOut) => {
+    const inSeconds = parseTimeToSeconds(tcIn);
+    const outSeconds = parseTimeToSeconds(tcOut);
+    if (inSeconds === null || outSeconds === null) {
+      return "";
+    }
+    return formatSecondsAsTime(outSeconds - inSeconds);
+  };
 
   const openTimeOverlay = (cell) => {
     if (!cell || !timeOverlayRoot) {
@@ -685,6 +714,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const durationCell = document.createElement("div");
     durationCell.className = "records-list__cell";
     durationCell.dataset.col = "duracion";
+    const durationValue = calculateDuration(record.tcIn, record.tcOut);
+    record.duration = durationValue;
+    durationCell.textContent = getTimeDisplayValue(durationValue);
     row.appendChild(durationCell);
 
     const tcInCell = document.createElement("div");
@@ -874,6 +906,14 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     record[field] = value;
+    if (row) {
+      const durationValue = calculateDuration(record.tcIn, record.tcOut);
+      record.duration = durationValue;
+      const durationCell = row.querySelector('[data-col="duracion"]');
+      if (durationCell) {
+        durationCell.textContent = getTimeDisplayValue(durationValue);
+      }
+    }
   };
   
   const renderRecords = () => {
@@ -1173,6 +1213,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
