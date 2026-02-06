@@ -48,8 +48,8 @@ body {
   --w-autor: 180px;
   --w-interprete: 180px;
   --w-duracion: 110px;
-  --w-tc-in: 75px;
-  --w-tc-out: 75px;
+  --w-tc-in: 80px;
+  --w-tc-out: 80px;
   --w-modalidad: 150px;
   --w-tipo-musica: 140px;
   --w-codigo-libreria: 160px;
@@ -712,6 +712,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
