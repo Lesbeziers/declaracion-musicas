@@ -422,6 +422,9 @@ body {
   width: 100%;
   height: 100%;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .records-list__grid {
   display: grid;
@@ -435,6 +438,7 @@ body {
   grid-template-columns: var(--cols);
   column-gap: var(--col-gap);
   align-items: center;
+  width: max-content;
   position: sticky;
   top: 0;
   z-index: 2;
@@ -458,6 +462,7 @@ body {
   grid-template-columns: var(--cols);
   column-gap: var(--col-gap);
   align-items: center;
+  width: max-content;
   background-color: #e8e8e8;
   padding: 16px 12px;
   padding-left: var(--records-pad-left);
@@ -724,6 +729,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
