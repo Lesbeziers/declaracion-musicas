@@ -183,9 +183,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeTimeCell = null;
   let activeTimeOverlay = null;
   let timeOverlayListeners = null;
-  let activeTimePart = "hh";
-  let timeParts = { hh: 0, mm: 0, ss: 0 };
-  let digitBuffer = { hh: "", mm: "", ss: "" };
+  let timeState = {
+    hh: 0,
+    mm: 0,
+    ss: 0,
+    activeUnit: "hh",
+    digitBuffer: "",
+  };
   let prevValueString = "";
 
   const updateTimeOverlayPosition = () => {
@@ -211,15 +215,15 @@ document.addEventListener("DOMContentLoaded", () => {
       handlePointerDown,
       handleResize,
       handleScroll,
-      handleEditorClick,
+      handleSpinnerClick,
     } = timeOverlayListeners;
     document.removeEventListener("keydown", handleKeydown);
     document.removeEventListener("mousedown", handlePointerDown);
     window.removeEventListener("resize", handleResize);
     recordsViewport.removeEventListener("scroll", handleScroll);
     if (activeTimeOverlay) {
-      const editor = activeTimeOverlay.querySelector(".time-overlay__editor");
-      editor?.removeEventListener("click", handleEditorClick);
+      const spinner = activeTimeOverlay.querySelector(".time-spinner");
+      spinner?.removeEventListener("click", handleSpinnerClick);
     }
     timeOverlayListeners = null;
   };
@@ -233,9 +237,13 @@ document.addEventListener("DOMContentLoaded", () => {
     activeTimeOverlay.remove();
     activeTimeOverlay = null;
     activeTimeCell = null;
-    activeTimePart = "hh";
-    timeParts = { hh: 0, mm: 0, ss: 0 };
-    digitBuffer = { hh: "", mm: "", ss: "" };
+    timeState = {
+      hh: 0,
+      mm: 0,
+      ss: 0,
+      activeUnit: "hh",
+      digitBuffer: "",
+    };
     prevValueString = "";
   };
 
@@ -246,25 +254,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
     closeTimeOverlay();
     activeTimeCell = cell;
-    prevValueString = cell.dataset.value || cell.textContent?.trim() || "";
+    prevValueString = cell.dataset.timeValue || cell.textContent?.trim() || "";
 
     const overlay = document.createElement("div");
     overlay.className = "time-overlay";
     overlay.innerHTML = `
-      <div class="time-overlay__editor" role="dialog" aria-label="Editor de tiempo">
-        <span class="time-part is-active" data-part="hh">00</span>
-        <span class="time-sep">:</span>
-        <span class="time-part" data-part="mm">00</span>
-        <span class="time-sep">:</span>
-        <span class="time-part" data-part="ss">00</span>
+      <div class="time-spinner" role="dialog" aria-label="Editor de tiempo">
+        <div class="time-col" data-unit="hh">
+          <button class="time-btn time-btn--up" type="button" aria-label="Subir horas">▲</button>
+          <div class="time-val" data-unit="hh">00</div>
+          <button class="time-btn time-btn--down" type="button" aria-label="Bajar horas">▼</button>
+          <div class="time-lab">HH</div>
+        </div>
+
+        <div class="time-col" data-unit="mm">
+          <button class="time-btn time-btn--up" type="button" aria-label="Subir minutos">▲</button>
+          <div class="time-val" data-unit="mm">00</div>
+          <button class="time-btn time-btn--down" type="button" aria-label="Bajar minutos">▼</button>
+          <div class="time-lab">MM</div>
+        </div>
+
+        <div class="time-col" data-unit="ss">
+          <button class="time-btn time-btn--up" type="button" aria-label="Subir segundos">▲</button>
+          <div class="time-val" data-unit="ss">00</div>
+          <button class="time-btn time-btn--down" type="button" aria-label="Bajar segundos">▼</button>
+          <div class="time-lab">SS</div>
+        </div>
       </div>
     `;
     timeOverlayRoot.appendChild(overlay);
     activeTimeOverlay = overlay;
     updateTimeOverlayPosition();
 
-    const editor = overlay.querySelector(".time-overlay__editor");
-    const partNodes = overlay.querySelectorAll(".time-part");
+    const spinner = overlay.querySelector(".time-spinner");
+    const valueNodes = overlay.querySelectorAll(".time-val");
+    const colNodes = overlay.querySelectorAll(".time-col");
 
     const parseTimeString = (value) => {
       if (!value) {
@@ -281,88 +305,123 @@ document.addEventListener("DOMContentLoaded", () => {
       };
     };
 
-    const clampPartValue = (part, value) => {
-      const max = part === "hh" ? 99 : 59;
+    const clampUnitValue = (unit, value) => {
+      const max = unit === "hh" ? 99 : 59;
       return Math.min(Math.max(value, 0), max);
     };
 
-    const renderParts = () => {
-      partNodes.forEach((node) => {
-        const part = node.dataset.part;
-        if (!part) {
+    const normalize2 = (value) => String(value).padStart(2, "0");
+
+    const renderSpinnerState = () => {
+      valueNodes.forEach((node) => {
+        const unit = node.dataset.unit;
+        if (!unit) {
           return;
         }
-        const value = timeParts[part];
-        node.textContent = String(value).padStart(2, "0");
+        node.textContent = normalize2(timeState[unit]);
+      });
+      colNodes.forEach((node) => {
+        node.classList.toggle("is-active", node.dataset.unit === timeState.activeUnit);
       });
     };
 
-    const setActivePart = (part) => {
-      activeTimePart = part;
-      partNodes.forEach((node) => {
-        node.classList.toggle("is-active", node.dataset.part === part);
-      });
+    const setActiveUnit = (unit) => {
+      timeState.activeUnit = unit;
+      timeState.digitBuffer = "";
+      renderSpinnerState();
     };
 
-    const applyDigitToPart = (digit) => {
-      const currentBuffer = `${digitBuffer[activeTimePart] || ""}${digit}`.slice(0, 2);
-      digitBuffer[activeTimePart] = currentBuffer;
+    const applyDigitToActiveUnit = (digit) => {
+      const currentBuffer = `${timeState.digitBuffer}${digit}`.slice(0, 2);
+      timeState.digitBuffer = currentBuffer;
       let value = Number.parseInt(currentBuffer, 10);
       if (Number.isNaN(value)) {
         value = 0;
       }
-      value = clampPartValue(activeTimePart, value);
-      timeParts[activeTimePart] = value;
-      renderParts();
+      value = clampUnitValue(timeState.activeUnit, value);
+      timeState[timeState.activeUnit] = value;
+      renderSpinnerState();
       if (currentBuffer.length === 2) {
-        digitBuffer[activeTimePart] = "";
+        timeState.digitBuffer = "";
       }
+    };
+
+    const adjustActiveUnit = (unit, delta) => {
+      timeState[unit] = clampUnitValue(unit, timeState[unit] + delta);
+      timeState.digitBuffer = "";
+      renderSpinnerState();
     };
 
     const commitTime = () => {
       if (!activeTimeCell) {
         return;
       }
-      const finalValue = ["hh", "mm", "ss"]
-        .map((part) => String(timeParts[part]).padStart(2, "0"))
-        .join(":");
+      const finalValue = ["hh", "mm", "ss"].map((unit) => normalize2(timeState[unit])).join(":");
       activeTimeCell.textContent = finalValue;
-      activeTimeCell.dataset.value = finalValue;
+      activeTimeCell.dataset.timeValue = finalValue;
       closeTimeOverlay();
     };
 
-    timeParts = parseTimeString(prevValueString);
-    digitBuffer = { hh: "", mm: "", ss: "" };
-    renderParts();
-    setActivePart("hh");
+    const cancelTime = () => {
+      if (!activeTimeCell) {
+        return;
+      }
+      activeTimeCell.textContent = prevValueString;
+      if (prevValueString) {
+        activeTimeCell.dataset.timeValue = prevValueString;
+      } else {
+        delete activeTimeCell.dataset.timeValue;
+      }
+      closeTimeOverlay();
+    };
 
-    const handleEditorClick = (event) => {
+    const initialParts = parseTimeString(prevValueString);
+    timeState = {
+      hh: initialParts.hh,
+      mm: initialParts.mm,
+      ss: initialParts.ss,
+      activeUnit: "hh",
+      digitBuffer: "",
+    };
+    renderSpinnerState();
+
+    const handleSpinnerClick = (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
         return;
       }
-      if (!target.classList.contains("time-part")) {
+      const button = target.closest(".time-btn");
+      const col = target.closest(".time-col");
+      if (!col) {
         return;
       }
-      const part = target.dataset.part;
-      if (!part) {
+      const unit = col.dataset.unit;
+      if (!unit) {
         return;
       }
-      setActivePart(part);
+      if (button) {
+        setActiveUnit(unit);
+        const isUp = button.classList.contains("time-btn--up");
+        adjustActiveUnit(unit, isUp ? 1 : -1);
+        return;
+      }
+      if (target.closest(".time-val") || col) {
+        setActiveUnit(unit);
+      }
     };
 
     const handleKeydown = (event) => {
       if (event.key === "Tab") {
         event.preventDefault();
         const order = ["hh", "mm", "ss"];
-        const currentIndex = order.indexOf(activeTimePart);
+        const currentIndex = order.indexOf(timeState.activeUnit);
         const direction = event.shiftKey ? -1 : 1;
         const nextIndex = (currentIndex + direction + order.length) % order.length;
-        setActivePart(order[nextIndex]);
+        setActiveUnit(order[nextIndex]);
         return;
       }
       if (event.key === "Escape") {
-        closeTimeOverlay();
+        cancelTime();
         return;
       }
       if (event.key === "Enter") {
@@ -370,7 +429,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       if (/^\d$/.test(event.key)) {
-        applyDigitToPart(event.key);
+        applyDigitToActiveUnit(event.key);
       }
     };
 
@@ -393,13 +452,13 @@ document.addEventListener("DOMContentLoaded", () => {
       handlePointerDown,
       handleResize,
       handleScroll,
-      handleEditorClick,
-    };
+      handleSpinnerClick,
+    };␊
     document.addEventListener("keydown", handleKeydown);
     document.addEventListener("mousedown", handlePointerDown);
     window.addEventListener("resize", handleResize);
     recordsViewport.addEventListener("scroll", handleScroll);
-    editor?.addEventListener("click", handleEditorClick);
+    spinner?.addEventListener("click", handleSpinnerClick);
   };
 
   const closeOverlay = ({ cancel = false } = {}) => {
@@ -1060,6 +1119,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
