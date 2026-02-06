@@ -453,7 +453,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (activeTimeOverlay.contains(target)) {
         return;
       }
-      closeTimeOverlay();
+      commitTime();
     };
 
     const handleResize = () => updateTimeOverlayPosition();
@@ -1131,6 +1131,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 });
+
 
 
 
