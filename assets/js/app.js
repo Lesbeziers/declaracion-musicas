@@ -5,6 +5,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const minusButton = document.querySelector(".layout-bar__icon--minus");
   const backButton = document.querySelector(".layout-bar__icon--back");
   const generateButton = document.querySelector(".layout-bar__button--generate");
+  const importButton = Array.from(document.querySelectorAll(".layout-bar__button")).find(
+    (button) => button.textContent?.trim().toUpperCase() === "IMPORTAR CUE SHEET"
+  );
   const recordsViewport = document.querySelector(".records-list__viewport");
   const recordsBody = document.querySelector(".records-list__body");
   const maxLength = 100;
@@ -117,11 +120,14 @@ document.addEventListener("DOMContentLoaded", () => {
     validationTouched: false,
     title: "",
     author: "",
+    performer: "",
     modality: "",
     musicType: "",
     tcIn: TIME_PLACEHOLDER,
     duration: "",
     tcOut: TIME_PLACEHOLDER,
+    libraryCode: "",
+    libraryName: "",
   });
 
   const getSelectionLength = (input) => {
@@ -667,6 +673,66 @@ document.addEventListener("DOMContentLoaded", () => {
     cancelButton.focus();
   };
 
+  const showImportConfirmationModal = ({ onReplace, onAppend }) => {
+    const overlay = document.createElement("div");
+    overlay.className = "delete-warning-modal__overlay";
+
+    const dialog = document.createElement("div");
+    dialog.className = "delete-warning-modal";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+
+    const text = document.createElement("p");
+    text.className = "delete-warning-modal__text";
+    text.textContent = "Ya hay datos cargados. ¿Qué quieres hacer?";
+
+    const actions = document.createElement("div");
+    actions.className = "delete-warning-modal__actions";
+
+    const replaceButton = document.createElement("button");
+    replaceButton.className = "delete-warning-modal__action";
+    replaceButton.type = "button";
+    replaceButton.textContent = "Reemplazar";
+
+    const appendButton = document.createElement("button");
+    appendButton.className = "delete-warning-modal__action";
+    appendButton.type = "button";
+    appendButton.textContent = "Añadir";
+
+    const cancelButton = document.createElement("button");
+    cancelButton.className = "delete-warning-modal__action";
+    cancelButton.type = "button";
+    cancelButton.textContent = "Cancelar";
+
+    actions.append(replaceButton, appendButton, cancelButton);
+    dialog.append(text, actions);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    const hide = () => {
+      replaceButton.removeEventListener("click", handleReplace);
+      appendButton.removeEventListener("click", handleAppend);
+      cancelButton.removeEventListener("click", hide);
+      overlay.remove();
+    };
+
+    const handleReplace = () => {
+      hide();
+      onReplace();
+    };
+
+    const handleAppend = () => {
+      hide();
+      onAppend();
+    };
+
+    replaceButton.addEventListener("click", handleReplace);
+    appendButton.addEventListener("click", handleAppend);
+    cancelButton.addEventListener("click", hide);
+
+    cancelButton.focus();
+  };
+
     const createRecordRow = (record) => {
     const row = document.createElement("div");
     row.className = "records-list__row records-list__grid";
@@ -807,7 +873,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const durationCell = document.createElement("div");
     durationCell.className = "records-list__cell";
     durationCell.dataset.col = "duracion";
-    const durationValue = calculateDuration(record.tcIn, record.tcOut);
+    const durationValue =
+      record.duration && isTimeString(record.duration)
+        ? record.duration
+        : calculateDuration(record.tcIn, record.tcOut);
     record.duration = durationValue;
     durationCell.textContent = getTimeDisplayValue(durationValue);
 
@@ -1458,6 +1527,175 @@ document.addEventListener("DOMContentLoaded", () => {
     backButton.addEventListener("click", undoLastDelete);
   }
 
+  const importInput = document.createElement("input");
+  importInput.type = "file";
+  importInput.accept = ".xlsx";
+  importInput.hidden = true;
+  document.body.appendChild(importInput);
+
+  const isRecordEmpty = (record) => {
+    const values = [
+      record.title,
+      record.author,
+      record.performer,
+      record.modality,
+      record.musicType,
+      record.libraryCode,
+      record.libraryName,
+      record.duration,
+    ];
+    const hasText = values.some((value) => String(value ?? "").trim() !== "");
+    const hasCustomTiming =
+      record.tcIn !== TIME_PLACEHOLDER || record.tcOut !== TIME_PLACEHOLDER;
+    return !hasText && !hasCustomTiming;
+  };
+
+  const hasExistingData = () => {
+    if (programInput?.value.trim() || episodeInput?.value.trim()) {
+      return true;
+    }
+    if (records.length > 1) {
+      return true;
+    }
+    return records.some((record) => !isRecordEmpty(record));
+  };
+
+  const normalizeCellValue = (value) => {
+    if (value === null || value === undefined) {
+      return "";
+    }
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    return String(value);
+  };
+
+  const loadImportWorkbook = async (file) => {
+    if (!window.XlsxPopulate) {
+      throw new Error("XlsxPopulate no está disponible.");
+    }
+    const arrayBuffer = await file.arrayBuffer();
+    return window.XlsxPopulate.fromDataAsync(arrayBuffer);
+  };
+
+  const buildRecordsFromSheet = (sheet) => {
+    const startRow = 8;
+    const usedRange = sheet.usedRange();
+    const lastUsedRow = usedRange ? usedRange.endCell().rowNumber() : startRow;
+    const lastRow = Math.max(startRow, lastUsedRow);
+    const rows = sheet.range(`A${startRow}:J${lastRow}`).value();
+    const importedRecords = [];
+
+    rows.forEach((row) => {
+      const rowValues = row.map((value) => normalizeCellValue(value));
+      const hasValues = rowValues.some((value) => value.trim() !== "");
+      if (!hasValues) {
+        return;
+      }
+      const [
+        title,
+        author,
+        performer,
+        tcIn,
+        tcOut,
+        duration,
+        modality,
+        musicType,
+        libraryCode,
+        libraryName,
+      ] = rowValues;
+
+      importedRecords.push({
+        id: nextRecordId++,
+        checked: false,
+        validationTouched: false,
+        title: title.trim(),
+        author: author.trim(),
+        performer: performer.trim(),
+        tcIn: tcIn.trim() || TIME_PLACEHOLDER,
+        tcOut: tcOut.trim() || TIME_PLACEHOLDER,
+        duration: duration.trim(),
+        modality: modality.trim(),
+        musicType: musicType.trim(),
+        libraryCode: libraryCode.trim(),
+        libraryName: libraryName.trim(),
+      });
+    });
+
+    return importedRecords;
+  };
+
+  const applyImportedData = ({ workbook, mode }) => {
+    const sheet = workbook.sheet("MODULOSGAE");
+    if (!sheet) {
+      throw new Error("No se encontró la hoja MODULOSGAE en el Excel importado.");
+    }
+
+    const importedProgramTitle = normalizeCellValue(sheet.cell("B5").value()).trim();
+    const importedEpisode = normalizeCellValue(sheet.cell("J5").value()).trim();
+    const importedRecords = buildRecordsFromSheet(sheet);
+
+    if (mode === "replace") {
+      records.splice(0, records.length, ...importedRecords);
+      if (records.length === 0) {
+        records.push(createEmptyRecord());
+      }
+      if (programInput) {
+        programInput.value = importedProgramTitle;
+      }
+      if (episodeInput) {
+        episodeInput.value = importedEpisode;
+      }
+    } else if (mode === "append") {
+      records.push(...importedRecords);
+      if (programInput && !programInput.value.trim()) {
+        programInput.value = importedProgramTitle;
+      }
+      if (episodeInput && !episodeInput.value.trim()) {
+        episodeInput.value = importedEpisode;
+      }
+    }
+
+    renderRecords();
+    updateBackButtonState();
+  };
+
+  const handleImport = async (file, mode) => {
+    try {
+      const workbook = await loadImportWorkbook(file);
+      applyImportedData({ workbook, mode });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  if (importButton) {
+    importButton.addEventListener("click", () => {
+      importInput.click();
+    });
+  }
+
+  importInput.addEventListener("change", async (event) => {
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const proceed = (mode) => handleImport(file, mode);
+
+    if (hasExistingData()) {
+      showImportConfirmationModal({
+        onReplace: () => proceed("replace"),
+        onAppend: () => proceed("append"),
+      });
+    } else {
+      proceed("replace");
+    }
+
+    input.value = "";
+  });
+
   const handleExportExcel = async () => {
     if (!window.XlsxPopulate) {
       console.error("XlsxPopulate no está disponible.");
@@ -1561,6 +1799,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
