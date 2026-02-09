@@ -4,7 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const plusButton = document.querySelector(".layout-bar__icon--plus");
   const minusButton = document.querySelector(".layout-bar__icon--minus");
   const backButton = document.querySelector(".layout-bar__icon--back");
-  const exportButton = document.querySelector(".layout-bar__button--export");
+  const generateButton = document.querySelector(".layout-bar__button--generate");
   const recordsViewport = document.querySelector(".records-list__viewport");
   const recordsBody = document.querySelector(".records-list__body");
   const maxLength = 100;
@@ -1314,7 +1314,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  if (exportButton) {
-    exportButton.addEventListener("click", handleExportExcel);
+  if (generateButton) {
+    generateButton.addEventListener("click", () => {
+      setTimeout(() => {
+        handleExportExcel();
+      }, 0);
+    });
   }
 });
