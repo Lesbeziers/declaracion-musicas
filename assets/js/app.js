@@ -10,6 +10,10 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   const recordsViewport = document.querySelector(".records-list__viewport");
   const recordsBody = document.querySelector(".records-list__body");
+  const recordsHeader = document.querySelector(".records-list__header");
+  const headerCells = recordsHeader
+    ? Array.from(recordsHeader.querySelectorAll(".records-list__cell"))
+    : [];
   const maxLength = 100;
   const textMeasureCanvas = document.createElement("canvas");
   const textMeasureContext = textMeasureCanvas.getContext("2d");
@@ -108,6 +112,67 @@ document.addEventListener("DOMContentLoaded", () => {
       return root;
     })();
 
+  const clearActiveHeaderCell = () => {
+    headerCells.forEach((cell) => cell.classList.remove("is-active"));
+  };
+
+  const setActiveHeaderCell = (index) => {
+    if (index === null || index === undefined || index < 0 || index >= headerCells.length) {
+      clearActiveHeaderCell();
+      return;
+    }
+    headerCells.forEach((cell, idx) => {
+      cell.classList.toggle("is-active", idx === index);
+    });
+  };
+
+  const getHeaderIndexForTarget = (target) => {
+    if (!target) {
+      return null;
+    }
+    const row = target.closest(".records-list__row");
+    if (!row) {
+      return null;
+    }
+
+    const rowCells = Array.from(row.children).filter((child) =>
+      child.classList.contains("records-list__cell")
+    );
+    const timingGroup = target.closest(".records-list__timing-group");
+    if (timingGroup) {
+      const timingGroupIndex = rowCells.indexOf(timingGroup);
+      if (timingGroupIndex === -1) {
+        return null;
+      }
+      const timingFields = timingGroup.querySelector(".records-list__timing-fields");
+      const timingCell = target.closest(".records-list__cell");
+      if (timingFields && timingCell && timingFields.contains(timingCell)) {
+        const timingCells = Array.from(timingFields.children).filter((child) =>
+          child.classList.contains("records-list__cell")
+        );
+        const timingIndex = timingCells.indexOf(timingCell);
+        if (timingIndex !== -1) {
+          return timingGroupIndex + timingIndex;
+        }
+      }
+      return timingGroupIndex;
+    }
+
+    const cell = target.closest(".records-list__cell");
+    if (!cell) {
+      return null;
+    }
+    const cellIndex = rowCells.indexOf(cell);
+    return cellIndex === -1 ? null : cellIndex;
+  };
+
+  const updateActiveHeaderFromTarget = (target) => {
+    const index = getHeaderIndexForTarget(target);
+    if (index === null) {
+      return;
+    }
+    setActiveHeaderCell(index);
+  };
   const updateBackButtonState = () => {
     if (backButton) {
       backButton.disabled = !lastDeleteSnapshot;
@@ -264,6 +329,12 @@ document.addEventListener("DOMContentLoaded", () => {
       digitBuffer: "",
     };
     prevValueString = "";
+    if (
+      !recordsViewport.contains(document.activeElement) &&
+      document.activeElement !== overlayInput
+    ) {
+      clearActiveHeaderCell();
+    }
   };
 
   const isTimeString = (value) => /^\d{2}:\d{2}:\d{2}$/.test(value);
@@ -338,6 +409,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     closeTimeOverlay();
     activeTimeCell = cell;
+    updateActiveHeaderFromTarget(cell);
     const rawText = cell.textContent?.trim() || "";
     prevValueString =
       cell.dataset.timeValue || (isTimeString(rawText) ? rawText : "");
@@ -576,6 +648,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const openOverlayForInput = (input) => {
     activeEditorTarget = input;
     editorPreviousValue = input.value;
+    updateActiveHeaderFromTarget(input);
 
     input.classList.add("is-editing");
     overlayOverflowAttempted = false;
@@ -1370,6 +1443,31 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  recordsViewport.addEventListener("focusin", (event) => {
+    const editableTarget = event.target.closest(".records-list__field, [data-role=\"time-cell\"]");
+    if (!editableTarget) {
+      return;
+    }
+    updateActiveHeaderFromTarget(editableTarget);
+  });
+
+  recordsViewport.addEventListener("focusout", () => {
+    window.setTimeout(() => {
+      const activeElement = document.activeElement;
+      if (
+        recordsViewport.contains(activeElement) ||
+        activeElement === overlayInput ||
+        (activeTimeOverlay && activeTimeOverlay.contains(activeElement))
+      ) {
+        return;
+      }
+      if (activeTimeOverlay) {
+        return;
+      }
+      clearActiveHeaderCell();
+    }, 0);
+  });
+
   recordsBody.addEventListener("focusin", (event) => {
     const input = event.target.closest(".dm-input");
     if (!input || shouldSkipFocusOpen) {
@@ -1419,6 +1517,24 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     openTimeOverlay(timeCell);
+  });
+
+  overlayInput.addEventListener("focusin", () => {
+    if (activeEditorTarget) {
+      updateActiveHeaderFromTarget(activeEditorTarget);
+    }
+  });
+
+  overlayInput.addEventListener("blur", () => {
+    window.setTimeout(() => {
+      if (
+        recordsViewport.contains(document.activeElement) ||
+        (activeTimeOverlay && activeTimeOverlay.contains(document.activeElement))
+      ) {
+        return;
+      }
+      clearActiveHeaderCell();
+    }, 0);
   });
 
   overlayInput.addEventListener("input", () => {
@@ -1798,6 +1914,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
