@@ -6,7 +6,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const backButton = document.querySelector(".layout-bar__icon--back");
   const generateButton = document.querySelector(".layout-bar__button--generate");
   const importButton = Array.from(document.querySelectorAll(".layout-bar__button")).find(
-    (button) => button.textContent?.trim().toUpperCase() === "IMPORTAR CUE SHEET"
+    (button) => {
+      const buttonText = button.textContent;
+      return (
+        buttonText && buttonText.trim().toUpperCase() === "IMPORTAR CUE SHEET"
+      );
+    }
   );
   const recordsViewport = document.querySelector(".records-list__viewport");
   const recordsBody = document.querySelector(".records-list__body");
@@ -135,8 +140,14 @@ document.addEventListener("DOMContentLoaded", () => {
       return 0;
     }
 
-    const selectionStart = input.selectionStart ?? input.value.length;
-    const selectionEnd = input.selectionEnd ?? input.value.length;
+    const selectionStart =
+      input.selectionStart !== null && input.selectionStart !== undefined
+        ? input.selectionStart
+        : input.value.length;
+    const selectionEnd =
+      input.selectionEnd !== null && input.selectionEnd !== undefined
+        ? input.selectionEnd
+        : input.value.length;
     return Math.max(0, selectionEnd - selectionStart);
   };
 
@@ -242,7 +253,9 @@ document.addEventListener("DOMContentLoaded", () => {
     recordsViewport.removeEventListener("scroll", handleScroll);
     if (activeTimeOverlay) {
       const spinner = activeTimeOverlay.querySelector(".time-spinner");
-      spinner?.removeEventListener("click", handleSpinnerClick);
+      if (spinner) {
+        spinner.removeEventListener("click", handleSpinnerClick);
+      }
     }
     timeOverlayListeners = null;
   };
@@ -338,7 +351,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     closeTimeOverlay();
     activeTimeCell = cell;
-    const rawText = cell.textContent?.trim() || "";
+    const rawText = (cell.textContent || "").trim();
     prevValueString =
       cell.dataset.timeValue || (isTimeString(rawText) ? rawText : "");
 
@@ -552,7 +565,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("mousedown", handlePointerDown);
     window.addEventListener("resize", handleResize);
     recordsViewport.addEventListener("scroll", handleScroll);
-    spinner?.addEventListener("click", handleSpinnerClick);
+    if (spinner) {
+      spinner.addEventListener("click", handleSpinnerClick);
+    }
   };
 
   const closeOverlay = ({ cancel = false } = {}) => {
@@ -908,7 +923,10 @@ document.addEventListener("DOMContentLoaded", () => {
       option.textContent = optionLabel;
       modalitySelect.appendChild(option);
     });
-    modalitySelect.value = record.modality ?? "";
+    modalitySelect.value =
+      record.modality !== null && record.modality !== undefined
+        ? record.modality
+        : "";
     modalitySelect.addEventListener("change", (event) => {
       record.modality = event.target.value;
       if (shouldApplyValidation(row)) {
@@ -918,7 +936,10 @@ document.addEventListener("DOMContentLoaded", () => {
     modalityCell.append(modalitySelect, createValidationMessage("modality"));
     row.appendChild(modalityCell);
 
-    const musicTypeCell = document.createElement("div");
+    musicTypeSelect.value =
+      record.musicType !== null && record.musicType !== undefined
+        ? record.musicType
+        : "";
     musicTypeCell.className = "records-list__cell records-list__field-cell records-list__cell--stacked";
     musicTypeCell.dataset.col = "tipo_musica";
     const musicTypeSelect = document.createElement("select");
@@ -1015,9 +1036,10 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const getNearestRow = (clientX, clientY) => {
-    const hovered = document
-      .elementFromPoint(clientX, clientY)
-      ?.closest(".records-list__row");
+     const hoveredElement = document.elementFromPoint(clientX, clientY);
+    const hovered = hoveredElement
+      ? hoveredElement.closest(".records-list__row")
+      : null;
     if (hovered && hovered !== draggedRow && hovered !== dragPlaceholder) {
       return hovered;
     }
@@ -1069,7 +1091,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     const row = cell.closest(".records-list__row");
-    const recordId = Number(row?.dataset.recordId);
+    const recordId = Number(row ? row.dataset.recordId : null);
     if (!recordId) {
       return;
     }
@@ -1180,7 +1202,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     fields.forEach((fieldKey) => {
       const field = row.querySelector(`[data-field="${fieldKey}"]`);
-      field?.classList.remove("is-error");
+      if (field) {
+        field.classList.remove("is-error");
+      }
     });
 
     messageFields.forEach((fieldKey) => {
@@ -1443,7 +1467,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const insertedText = event.data ?? "";
+    const insertedText =
+      event.data !== null && event.data !== undefined ? event.data : "";
     const selectedLength = getSelectionLength(overlayInput);
     const nextLength = overlayInput.value.length - selectedLength + insertedText.length;
 
@@ -1460,13 +1485,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     event.preventDefault();
-    const clipboardText = event.clipboardData?.getData("text") ?? "";
+    const clipboardText = event.clipboardData
+      ? event.clipboardData.getData("text")
+      : "";
     const selectedLength = getSelectionLength(overlayInput);
     const available = maxLength - (overlayInput.value.length - selectedLength);
     const safeAvailable = Math.max(0, available);
     const allowedText = clipboardText.slice(0, safeAvailable);
 
-    overlayInput.setRangeText(allowedText, overlayInput.selectionStart ?? 0, overlayInput.selectionEnd ?? 0, "end");
+    const clipboardText = event.clipboardData
+      ? event.clipboardData.getData("text")
+      : "";
     overlayInput.dispatchEvent(new Event("input", { bubbles: true }));
 
     if (clipboardText.length > allowedText.length) {
@@ -1509,10 +1538,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (event.key === "Escape") {
       event.preventDefault();
-      const inputToBlur = activeEditorTarget;
+    const rangeStart =
+      overlayInput.selectionStart !== null && overlayInput.selectionStart !== undefined
+        ? overlayInput.selectionStart
+        : 0;
+    const rangeEnd =
+      overlayInput.selectionEnd !== null && overlayInput.selectionEnd !== undefined
+        ? overlayInput.selectionEnd
+        : 0;
+    overlayInput.setRangeText(allowedText, rangeStart, rangeEnd, "end");
       closeOverlay({ cancel: true });
       shouldSkipFocusOpen = true;
-      inputToBlur?.blur();
+      if (inputToBlur) {
+        inputToBlur.blur();
+      }
     }
   });
 
@@ -1544,14 +1583,19 @@ document.addEventListener("DOMContentLoaded", () => {
       record.libraryName,
       record.duration,
     ];
-    const hasText = values.some((value) => String(value ?? "").trim() !== "");
+      if (inputToBlur) {
+        inputToBlur.blur();
+      }
     const hasCustomTiming =
       record.tcIn !== TIME_PLACEHOLDER || record.tcOut !== TIME_PLACEHOLDER;
     return !hasText && !hasCustomTiming;
   };
 
   const hasExistingData = () => {
-    if (programInput?.value.trim() || episodeInput?.value.trim()) {
+    if (
+      (programInput && programInput.value.trim()) ||
+      (episodeInput && episodeInput.value.trim())
+    ) {
       return true;
     }
     if (records.length > 1) {
@@ -1678,7 +1722,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   importInput.addEventListener("change", async (event) => {
     const input = event.target;
-    const file = input.files?.[0];
+    const file = input.files ? input.files[0] : null;
     if (!file) {
       return;
     }
@@ -1715,8 +1759,8 @@ document.addEventListener("DOMContentLoaded", () => {
         throw new Error("No se encontró la hoja MODULOSGAE en la plantilla.");
       }
 
-      sheet.range("B5:H5").value(programInput?.value || "");
-      const rawEpisodeValue = episodeInput?.value || "";
+      sheet.range("B5:H5").value(programInput ? programInput.value : "");
+      const rawEpisodeValue = episodeInput ? episodeInput.value : "";
       const trimmedEpisodeValue = rawEpisodeValue.trim();
       let exportEpisodeValue = trimmedEpisodeValue;
       if (trimmedEpisodeValue && /^\d+$/.test(trimmedEpisodeValue)) {
@@ -1800,6 +1844,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
