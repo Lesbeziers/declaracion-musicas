@@ -114,6 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const createEmptyRecord = () => ({
     id: nextRecordId++,
     checked: false,
+    validationTouched: false,
     title: "",
     author: "",
     modality: "",
@@ -717,14 +718,14 @@ document.addEventListener("DOMContentLoaded", () => {
     titleInput.value = record.title;
     titleInput.placeholder = "Título";
     titleInput.dataset.field = "title";
-    titleInput.addEventListener("input", (event) => {
+     titleInput.addEventListener("input", (event) => {
       record.title = event.target.value;
-      if (validationArmed) {
+      if (shouldApplyValidation(row)) {
         applyValidationUI(row, validateRow(row).fieldErrors);
       }
     });
     titleInput.addEventListener("blur", () => {
-      if (validationArmed) {
+      if (shouldApplyValidation(row)) {
         applyValidationUI(row, validateRow(row).fieldErrors);
       }
     });
@@ -742,13 +743,13 @@ document.addEventListener("DOMContentLoaded", () => {
     authorInput.placeholder = "Autor";
     authorInput.dataset.field = "author";
     authorInput.addEventListener("input", (event) => {
-    record.author = event.target.value;
-    if (validationArmed) {
-      applyValidationUI(row, validateRow(row).fieldErrors);
-    }
+      record.author = event.target.value;
+      if (shouldApplyValidation(row)) {
+        applyValidationUI(row, validateRow(row).fieldErrors);
+      }
     });
     authorInput.addEventListener("blur", () => {
-      if (validationArmed) {
+      if (shouldApplyValidation(row)) {
         applyValidationUI(row, validateRow(row).fieldErrors);
       }
     });
@@ -841,7 +842,7 @@ document.addEventListener("DOMContentLoaded", () => {
     modalitySelect.value = record.modality ?? "";
     modalitySelect.addEventListener("change", (event) => {
       record.modality = event.target.value;
-      if (validationArmed) {
+      if (shouldApplyValidation(row)) {
         applyValidationUI(row, validateRow(row).fieldErrors);
       }
     });
@@ -869,7 +870,7 @@ document.addEventListener("DOMContentLoaded", () => {
     musicTypeSelect.value = record.musicType ?? "";
     musicTypeSelect.addEventListener("change", (event) => {
       record.musicType = event.target.value;
-      if (validationArmed) {
+      if (shouldApplyValidation(row)) {
         applyValidationUI(row, validateRow(row).fieldErrors);
       }
     });
@@ -918,8 +919,11 @@ document.addEventListener("DOMContentLoaded", () => {
       clearDragState();
     });
 
-    if (validationArmed) {
+    row.dataset.validationTouched = record.validationTouched ? "1" : "0";
+    if (shouldApplyValidation(row)) {
       applyValidationUI(row, validateRow(row).fieldErrors);
+    } else {
+      resetValidationUI(row);
     }
 
     return row;
@@ -1013,7 +1017,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (durationCell) {
         durationCell.textContent = getTimeDisplayValue(durationValue);
       }
-      if (validationArmed) {
+      if (shouldApplyValidation(row)) {
         applyValidationUI(row, validateRow(row).fieldErrors);
       }
     }
@@ -1101,6 +1105,45 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const resetValidationUI = (row) => {
+    const fields = ["title", "author", "modality", "musicType", "tcIn", "tcOut"];
+    const messageFields = ["title", "author", "modality", "musicType"];
+
+    fields.forEach((fieldKey) => {
+      const field = row.querySelector(`[data-field="${fieldKey}"]`);
+      field?.classList.remove("is-error");
+    });
+
+    messageFields.forEach((fieldKey) => {
+      const message = row.querySelector(`[data-validation-message="${fieldKey}"]`);
+      if (message) {
+        message.textContent = "";
+        message.classList.remove("is-visible");
+      }
+    });
+
+    const timingMessage = row.querySelector('[data-error-slot="timing"]');
+    if (timingMessage) {
+      timingMessage.textContent = "";
+      timingMessage.classList.remove("is-visible");
+    }
+  };
+
+  const isRowValidationTouched = (row) => row.dataset.validationTouched === "1";
+
+  const shouldApplyValidation = (row) => validationArmed && isRowValidationTouched(row);
+
+  const markRowValidationTouched = (row) => {
+    row.dataset.validationTouched = "1";
+    const recordId = Number(row.dataset.recordId);
+    if (recordId) {
+      const record = records.find((entry) => entry.id === recordId);
+      if (record) {
+        record.validationTouched = true;
+      }
+    }
+  };
+
   const validateAllRows = ({ applyUI = false } = {}) => {
     const rows = Array.from(recordsBody.querySelectorAll(".records-list__row"));
     let hasErrors = false;
@@ -1109,8 +1152,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (rowHasErrors) {
         hasErrors = true;
       }
-      if (applyUI) {
+      if (applyUI && isRowValidationTouched(row)) {
         applyValidationUI(row, fieldErrors);
+      } else if (applyUI) {
+        resetValidationUI(row);
       }
     });
     return { hasErrors };
@@ -1503,6 +1548,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (generateButton) {
     generateButton.addEventListener("click", () => {
       validationArmed = true;
+      recordsBody.querySelectorAll(".records-list__row").forEach((row) => {
+        markRowValidationTouched(row);
+      });
       const { hasErrors } = validateAllRows({ applyUI: true });
       if (hasErrors) {
         return;
@@ -1513,6 +1561,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
