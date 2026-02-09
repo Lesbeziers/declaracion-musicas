@@ -1268,7 +1268,15 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       sheet.range("B5:H5").value(programInput?.value || "");
-      sheet.cell("J5").value(episodeInput?.value || "");
+      const rawEpisodeValue = episodeInput?.value || "";
+      const trimmedEpisodeValue = rawEpisodeValue.trim();
+      let exportEpisodeValue = trimmedEpisodeValue;
+      if (trimmedEpisodeValue && /^\d+$/.test(trimmedEpisodeValue)) {
+        exportEpisodeValue = trimmedEpisodeValue.startsWith("0")
+          ? trimmedEpisodeValue
+          : Number(trimmedEpisodeValue);
+      }
+      sheet.cell("J5").value(exportEpisodeValue);
 
       const startRow = 8;
       const startColumn = "A";
@@ -1336,5 +1344,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
