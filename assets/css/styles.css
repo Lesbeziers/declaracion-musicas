@@ -493,6 +493,7 @@ body {
 
 .records-list__timing-group {
   grid-column: span 3;
+  position: relative;
   flex-direction: column;
   align-items: stretch;
   gap: 4px;
@@ -524,10 +525,13 @@ body {
 }
 
 .records-list__validation-message {
-  min-height: 12px;
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
   font-size: 12px;
   line-height: 1.1;
   color: #ff0000;
+  white-space: nowrap;
   visibility: hidden;
 }
 
@@ -786,6 +790,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
