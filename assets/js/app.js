@@ -135,40 +135,46 @@ document.addEventListener("DOMContentLoaded", () => {
       return null;
     }
 
-    const rowCells = Array.from(row.children).filter((child) =>
-      child.classList.contains("records-list__cell")
-    );
-    const timingGroup = target.closest(".records-list__timing-group");
-    if (timingGroup) {
-      const timingGroupIndex = rowCells.indexOf(timingGroup);
-      if (timingGroupIndex === -1) {
-        return null;
+    const columnCells = Array.from(row.children).reduce((cells, child) => {
+      if (!child.classList.contains("records-list__cell")) {
+        return cells;
       }
-      const timingFields = timingGroup.querySelector(".records-list__timing-fields");
-      const timingCell = target.closest(".records-list__cell");
-      if (timingFields && timingCell && timingFields.contains(timingCell)) {
-        const timingCells = Array.from(timingFields.children).filter((child) =>
-          child.classList.contains("records-list__cell")
-        );
-        const timingIndex = timingCells.indexOf(timingCell);
-        if (timingIndex !== -1) {
-          return timingGroupIndex + timingIndex;
+      if (child.classList.contains("records-list__timing-group")) {
+        const timingFields = child.querySelector(".records-list__timing-fields");
+        if (timingFields) {
+          Array.from(timingFields.children).forEach((timingCell) => {
+            if (timingCell.classList.contains("records-list__cell")) {
+              cells.push(timingCell);
+            }
+          });
+          return cells;
         }
       }
-      return timingGroupIndex;
-    }
+      cells.push(child);
+      return cells;
+    }, []);
 
-    const cell = target.closest(".records-list__cell");
-    if (!cell) {
+    const timingFields = row.querySelector(".records-list__timing-fields");
+    const columnCell = timingFields && timingFields.contains(target)
+      ? Array.from(timingFields.children).find(
+          (cell) => cell.classList.contains("records-list__cell") && cell.contains(target)
+        )
+      : Array.from(row.children).find(
+          (cell) => cell.classList.contains("records-list__cell") && cell.contains(target)
+        );
+
+    if (!columnCell) {
       return null;
     }
-    const cellIndex = rowCells.indexOf(cell);
+
+    const cellIndex = columnCells.indexOf(columnCell);
     return cellIndex === -1 ? null : cellIndex;
   };
 
   const updateActiveHeaderFromTarget = (target) => {
     const index = getHeaderIndexForTarget(target);
     if (index === null) {
+      clearActiveHeaderCell();
       return;
     }
     setActiveHeaderCell(index);
@@ -1443,13 +1449,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  recordsViewport.addEventListener("focusin", (event) => {
-    const editableTarget = event.target.closest(".records-list__field, [data-role=\"time-cell\"]");
-    if (!editableTarget) {
-      return;
-    }
-    updateActiveHeaderFromTarget(editableTarget);
-  });
+  recordsViewport.addEventListener(
+    "focusin",
+    (event) => {
+      const editableTarget = event.target.closest(".records-list__field, [data-role=\"time-cell\"]");
+      if (!editableTarget) {
+        return;
+      }
+      updateActiveHeaderFromTarget(editableTarget);
+    },
+    true
+  );
 
   recordsViewport.addEventListener("focusout", () => {
     window.setTimeout(() => {
@@ -1914,6 +1924,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
