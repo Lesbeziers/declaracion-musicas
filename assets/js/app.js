@@ -117,9 +117,9 @@ document.addEventListener("DOMContentLoaded", () => {
     author: "",
     modality: "",
     musicType: "",
-    tcIn: "",
+    tcIn: TIME_PLACEHOLDER,
     duration: "",
-    tcOut: "",
+    tcOut: TIME_PLACEHOLDER,
   });
 
   const getSelectionLength = (input) => {
@@ -1336,4 +1336,5 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
