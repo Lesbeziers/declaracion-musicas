@@ -1492,10 +1492,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const available = maxLength - (overlayInput.value.length - selectedLength);
     const safeAvailable = Math.max(0, available);
     const allowedText = clipboardText.slice(0, safeAvailable);
-
-    const clipboardText = event.clipboardData
-      ? event.clipboardData.getData("text")
-      : "";
+    const rangeStart =
+      overlayInput.selectionStart !== null && overlayInput.selectionStart !== undefined
+        ? overlayInput.selectionStart
+        : 0;
+    const rangeEnd =
+      overlayInput.selectionEnd !== null && overlayInput.selectionEnd !== undefined
+        ? overlayInput.selectionEnd
+        : 0;
+    overlayInput.setRangeText(allowedText, rangeStart, rangeEnd, "end");
     overlayInput.dispatchEvent(new Event("input", { bubbles: true }));
 
     if (clipboardText.length > allowedText.length) {
@@ -1538,20 +1543,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (event.key === "Escape") {
       event.preventDefault();
-    const rangeStart =
-      overlayInput.selectionStart !== null && overlayInput.selectionStart !== undefined
-        ? overlayInput.selectionStart
-        : 0;
-    const rangeEnd =
-      overlayInput.selectionEnd !== null && overlayInput.selectionEnd !== undefined
-        ? overlayInput.selectionEnd
-        : 0;
-    overlayInput.setRangeText(allowedText, rangeStart, rangeEnd, "end");
+      const inputToBlur = activeEditorTarget;
       closeOverlay({ cancel: true });
       shouldSkipFocusOpen = true;
-      if (inputToBlur) {
-        inputToBlur.blur();
-      }
+      inputToBlur?.blur();
+      return;
     }
   });
 
@@ -1583,9 +1579,7 @@ document.addEventListener("DOMContentLoaded", () => {
       record.libraryName,
       record.duration,
     ];
-      if (inputToBlur) {
-        inputToBlur.blur();
-      }
+    const hasText = values.some((value) => Boolean(value && value.trim()));
     const hasCustomTiming =
       record.tcIn !== TIME_PLACEHOLDER || record.tcOut !== TIME_PLACEHOLDER;
     return !hasText && !hasCustomTiming;
@@ -1844,6 +1838,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
