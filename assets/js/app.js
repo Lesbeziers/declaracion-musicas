@@ -1087,102 +1087,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
     return { hasErrors };
-  };    record[field] = value;
-    if (row) {
-      const durationValue = calculateDuration(record.tcIn, record.tcOut);
-      record.duration = durationValue;
-      const durationCell = row.querySelector('[data-col="duracion"]');
-      if (durationCell) {
-        durationCell.textContent = getTimeDisplayValue(durationValue);
-      }
-      if (validationArmed) {
-        applyValidationUI(row, validateRow(row).fieldErrors);
-      }
-    }
-  };
-
-  const getFieldValue = (row, fieldKey) => {
-    const field = row.querySelector(`[data-field="${fieldKey}"]`);
-    if (!field) {
-      return "";
-    }
-    if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) {
-      return field.value;
-    }
-    return field.dataset.timeValue || field.textContent || "";
-  };
-
-  const validateRow = (row) => {
-    const fieldErrors = {};
-    const titleValue = getFieldValue(row, "title").trim();
-    if (!titleValue) {
-      fieldErrors.title = "Campo obligatorio";
-    }
-    const authorValue = getFieldValue(row, "author").trim();
-    if (!authorValue) {
-      fieldErrors.author = "Campo obligatorio";
-    }
-    const modalityValue = getFieldValue(row, "modality").trim();
-    if (!modalityValue) {
-      fieldErrors.modality = "Campo obligatorio";
-    }
-    const musicTypeValue = getFieldValue(row, "musicType").trim();
-    if (!musicTypeValue) {
-      fieldErrors.musicType = "Campo obligatorio";
-    }
-
-    const tcInValue = getFieldValue(row, "tcIn").trim();
-    const tcOutValue = getFieldValue(row, "tcOut").trim();
-    const tcInValid = isValidTimeFormat(tcInValue);
-    const tcOutValid = isValidTimeFormat(tcOutValue);
-
-    if (!tcInValid) {
-      fieldErrors.tcIn = "Formato inválido (HH:MM:SS)";
-    }
-    if (!tcOutValid) {
-      fieldErrors.tcOut = "Formato inválido (HH:MM:SS)";
-    }
-
-    if (tcInValid && tcOutValid) {
-      const inSeconds = parseTimeToSeconds(tcInValue);
-      const outSeconds = parseTimeToSeconds(tcOutValue);
-      if (inSeconds !== null && outSeconds !== null && outSeconds <= inSeconds) {
-        fieldErrors.tcOut = "TC OUT debe ser mayor que TC IN";
-      }
-    }
-
-    return { fieldErrors, hasErrors: Object.keys(fieldErrors).length > 0 };
-  };
-
-  const applyValidationUI = (row, fieldErrors) => {
-    const fields = ["title", "author", "modality", "musicType", "tcIn", "tcOut"];
-    fields.forEach((fieldKey) => {
-      const field = row.querySelector(`[data-field="${fieldKey}"]`);
-      const message = row.querySelector(`[data-validation-message="${fieldKey}"]`);
-      const errorMessage = fieldErrors[fieldKey];
-      if (field) {
-        field.classList.toggle("is-error", Boolean(errorMessage));
-      }
-      if (message) {
-        message.textContent = errorMessage || "";
-        message.classList.toggle("is-visible", Boolean(errorMessage));
-      }
-    });
-  };
-
-  const validateAllRows = ({ applyUI = false } = {}) => {
-    const rows = Array.from(recordsBody.querySelectorAll(".records-list__row"));
-    let hasErrors = false;
-    rows.forEach((row) => {
-      const { fieldErrors, hasErrors: rowHasErrors } = validateRow(row);
-      if (rowHasErrors) {
-        hasErrors = true;
-      }
-      if (applyUI) {
-        applyValidationUI(row, fieldErrors);
-      }
-    });
-    return { hasErrors };
   };
   
   const renderRecords = () => {
@@ -1582,6 +1486,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
