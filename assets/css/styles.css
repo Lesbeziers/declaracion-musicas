@@ -498,6 +498,29 @@ body {
   text-align: center;
 }
 
+.records-list__cell--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.records-list__time-display {
+  justify-content: center;
+  text-align: center;
+}
+
+.records-list__validation-message {
+  min-height: 12px;
+  font-size: 12px;
+  line-height: 1.1;
+  color: #ff0000;
+  visibility: hidden;
+}
+
+.records-list__validation-message.is-visible {
+  visibility: visible;
+}
+
 .records-list__cell--time {
   width: 100%;
   height: 24px;
@@ -510,6 +533,11 @@ body {
 
 .records-list__cell--time:focus-visible {
   border: 2px solid #31d0f4;
+}
+
+.records-list__cell--time.is-error,
+.records-list__cell--time.is-error:focus-visible {
+  border: 2px solid #ff0000;
 }
 
 .time-overlay {
@@ -739,6 +767,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
