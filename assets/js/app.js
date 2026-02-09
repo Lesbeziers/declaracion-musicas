@@ -1628,7 +1628,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const applyImportedData = ({ workbook, mode }) => {
     const sheet = workbook.sheet("MODULOSGAE");
     if (!sheet) {
-      throw new Error("No se encontró la hoja MODULOSGAE en el Excel importado.");
+      throw new Error("No se encontró la hoja MODULOSGAE en el Excel importado.");␊
     }
 
     const importedProgramTitle = normalizeCellValue(sheet.cell("B5").value()).trim();
@@ -1656,6 +1656,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    lastDeleteSnapshot = null;
     renderRecords();
     updateBackButtonState();
   };
@@ -1799,6 +1800,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
