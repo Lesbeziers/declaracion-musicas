@@ -1534,20 +1534,19 @@ document.addEventListener("DOMContentLoaded", () => {
   document.body.appendChild(importInput);
 
   const isRecordEmpty = (record) => {
-    const values = [
+    const textValues = [
       record.title,
       record.author,
       record.performer,
-      record.modality,
-      record.musicType,
       record.libraryCode,
       record.libraryName,
-      record.duration,
     ];
-    const hasText = values.some((value) => String(value ?? "").trim() !== "");
+    const selectValues = [record.modality, record.musicType];
+    const hasText = textValues.some((value) => String(value ?? "").trim() !== "");
+    const hasSelection = selectValues.some((value) => String(value ?? "").trim() !== "");
     const hasCustomTiming =
       record.tcIn !== TIME_PLACEHOLDER || record.tcOut !== TIME_PLACEHOLDER;
-    return !hasText && !hasCustomTiming;
+    return !hasText && !hasSelection && !hasCustomTiming;
   };
 
   const hasExistingData = () => {
@@ -1799,6 +1798,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
