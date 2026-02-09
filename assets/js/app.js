@@ -77,6 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let editorPreviousValue = "";
   let shouldSkipFocusOpen = false;
   let overlayOverflowAttempted = false;
+  let validationArmed = false;
 
   const editorLayer = document.createElement("div");
   editorLayer.id = "dm-editor-layer";
@@ -259,6 +260,16 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const isTimeString = (value) => /^\d{2}:\d{2}:\d{2}$/.test(value);
+  const isValidTimeFormat = (value) => {
+    if (!isTimeString(value)) {
+      return false;
+    }
+    const [hours, minutes, seconds] = value.split(":").map((part) => Number.parseInt(part, 10));
+    if ([hours, minutes, seconds].some((part) => Number.isNaN(part))) {
+      return false;
+    }
+    return minutes >= 0 && minutes <= 59 && seconds >= 0 && seconds <= 59;
+  };
   const getTimeDisplayValue = (value) => (value ? String(value) : TIME_PLACEHOLDER);
 
   const parseTimeToSeconds = (value) => {
@@ -660,6 +671,13 @@ document.addEventListener("DOMContentLoaded", () => {
     row.className = "records-list__row records-list__grid";
     row.dataset.recordId = String(record.id);
 
+    const createValidationMessage = (fieldKey) => {
+      const message = document.createElement("div");
+      message.className = "records-list__validation-message";
+      message.dataset.validationMessage = fieldKey;
+      return message;
+    };
+
     const controlsCell = document.createElement("div");
     controlsCell.className = "records-list__cell records-list__cell--controls";
 
@@ -690,7 +708,7 @@ document.addEventListener("DOMContentLoaded", () => {
     row.appendChild(controlsCell);
 
     const titleCell = document.createElement("div");
-    titleCell.className = "records-list__cell records-list__field-cell";
+    titleCell.className = "records-list__cell records-list__field-cell records-list__cell--stacked";
     titleCell.dataset.col = "titulo";
     const titleInput = document.createElement("input");
     titleInput.className = "records-list__field dm-input";
@@ -698,14 +716,23 @@ document.addEventListener("DOMContentLoaded", () => {
     titleInput.maxLength = maxLength;
     titleInput.value = record.title;
     titleInput.placeholder = "Título";
+    titleInput.dataset.field = "title";
     titleInput.addEventListener("input", (event) => {
       record.title = event.target.value;
+      if (validationArmed) {
+        applyValidationUI(row, validateRow(row).fieldErrors);
+      }
     });
-    titleCell.appendChild(titleInput);
+    titleInput.addEventListener("blur", () => {
+      if (validationArmed) {
+        applyValidationUI(row, validateRow(row).fieldErrors);
+      }
+    });
+    titleCell.append(titleInput, createValidationMessage("title"));
     row.appendChild(titleCell);
 
     const authorCell = document.createElement("div");
-    authorCell.className = "records-list__cell records-list__field-cell";
+    authorCell.className = "records-list__cell records-list__field-cell records-list__cell--stacked";
     authorCell.dataset.col = "autor";
     const authorInput = document.createElement("input");
     authorInput.className = "records-list__field dm-input";
@@ -713,12 +740,20 @@ document.addEventListener("DOMContentLoaded", () => {
     authorInput.maxLength = maxLength;
     authorInput.value = record.author;
     authorInput.placeholder = "Autor";
+    authorInput.dataset.field = "author";
     authorInput.addEventListener("input", (event) => {
     record.author = event.target.value;
+    if (validationArmed) {
+      applyValidationUI(row, validateRow(row).fieldErrors);
+    }
     });
-    authorCell.appendChild(authorInput);
+    authorInput.addEventListener("blur", () => {
+      if (validationArmed) {
+        applyValidationUI(row, validateRow(row).fieldErrors);
+      }
+    });
+    authorCell.append(authorInput, createValidationMessage("author"));
     row.appendChild(authorCell);
-
     const performerCell = document.createElement("div");
     performerCell.className = "records-list__cell records-list__field-cell";
     performerCell.dataset.col = "interprete";
@@ -735,29 +770,34 @@ document.addEventListener("DOMContentLoaded", () => {
     row.appendChild(performerCell);
 
     const tcInCell = document.createElement("div");
-    tcInCell.className = "records-list__cell records-list__cell--time";
+    tcInCell.className = "records-list__cell records-list__cell--stacked records-list__cell--time-wrapper";
     tcInCell.dataset.col = "tc_in";
-    tcInCell.dataset.field = "tcIn";
-    tcInCell.dataset.role = "time-cell";
-    tcInCell.tabIndex = 0;
-    tcInCell.textContent = getTimeDisplayValue(record.tcIn);
+    const tcInDisplay = document.createElement("div");
+    tcInDisplay.className = "records-list__cell records-list__cell--time records-list__time-display";
+    tcInDisplay.dataset.field = "tcIn";
+    tcInDisplay.dataset.role = "time-cell";
+    tcInDisplay.tabIndex = 0;
+    tcInDisplay.textContent = getTimeDisplayValue(record.tcIn);
     if (record.tcIn) {
-      tcInCell.dataset.timeValue = String(record.tcIn);
+      tcInDisplay.dataset.timeValue = String(record.tcIn);
     }
+    tcInCell.append(tcInDisplay, createValidationMessage("tcIn"));
     row.appendChild(tcInCell);
 
     const tcOutCell = document.createElement("div");
-    tcOutCell.className = "records-list__cell records-list__cell--time";
+    tcOutCell.className = "records-list__cell records-list__cell--stacked records-list__cell--time-wrapper";
     tcOutCell.dataset.col = "tc_out";
-    tcOutCell.dataset.field = "tcOut";
-    tcOutCell.dataset.role = "time-cell";
-    tcOutCell.tabIndex = 0;
-    tcOutCell.textContent = getTimeDisplayValue(record.tcOut);
+    const tcOutDisplay = document.createElement("div");
+    tcOutDisplay.className = "records-list__cell records-list__cell--time records-list__time-display";
+    tcOutDisplay.dataset.field = "tcOut";
+    tcOutDisplay.dataset.role = "time-cell";
+    tcOutDisplay.tabIndex = 0;
+    tcOutDisplay.textContent = getTimeDisplayValue(record.tcOut);
     if (record.tcOut) {
-      tcOutCell.dataset.timeValue = String(record.tcOut);
+      tcOutDisplay.dataset.timeValue = String(record.tcOut);
     }
+    tcOutCell.append(tcOutDisplay, createValidationMessage("tcOut"));
     row.appendChild(tcOutCell);
-
     const durationCell = document.createElement("div");
     durationCell.className = "records-list__cell";
     durationCell.dataset.col = "duracion";
@@ -767,10 +807,11 @@ document.addEventListener("DOMContentLoaded", () => {
     row.appendChild(durationCell);
 
     const modalityCell = document.createElement("div");
-    modalityCell.className = "records-list__cell records-list__field-cell";
+    modalityCell.className = "records-list__cell records-list__field-cell records-list__cell--stacked";
     modalityCell.dataset.col = "modalidad";
     const modalitySelect = document.createElement("select");
     modalitySelect.className = "records-list__field";
+    modalitySelect.dataset.field = "modality";
     const modalityPlaceholder = document.createElement("option");
     modalityPlaceholder.value = "";
     modalityPlaceholder.textContent = "Selecciona…";
@@ -786,15 +827,19 @@ document.addEventListener("DOMContentLoaded", () => {
     modalitySelect.value = record.modality ?? "";
     modalitySelect.addEventListener("change", (event) => {
       record.modality = event.target.value;
+      if (validationArmed) {
+        applyValidationUI(row, validateRow(row).fieldErrors);
+      }
     });
-    modalityCell.appendChild(modalitySelect);
+    modalityCell.append(modalitySelect, createValidationMessage("modality"));
     row.appendChild(modalityCell);
 
     const musicTypeCell = document.createElement("div");
-    musicTypeCell.className = "records-list__cell records-list__field-cell";
+    musicTypeCell.className = "records-list__cell records-list__field-cell records-list__cell--stacked";
     musicTypeCell.dataset.col = "tipo_musica";
     const musicTypeSelect = document.createElement("select");
     musicTypeSelect.className = "records-list__field";
+    musicTypeSelect.dataset.field = "musicType";
     const musicTypePlaceholder = document.createElement("option");
     musicTypePlaceholder.value = "";
     musicTypePlaceholder.textContent = "Selecciona…";
@@ -810,8 +855,11 @@ document.addEventListener("DOMContentLoaded", () => {
     musicTypeSelect.value = record.musicType ?? "";
     musicTypeSelect.addEventListener("change", (event) => {
       record.musicType = event.target.value;
+      if (validationArmed) {
+        applyValidationUI(row, validateRow(row).fieldErrors);
+      }
     });
-    musicTypeCell.appendChild(musicTypeSelect);
+    musicTypeCell.append(musicTypeSelect, createValidationMessage("musicType"));
     row.appendChild(musicTypeCell);
 
     const libraryCodeCell = document.createElement("div");
@@ -856,10 +904,12 @@ document.addEventListener("DOMContentLoaded", () => {
       clearDragState();
     });
 
+    if (validationArmed) {
+      applyValidationUI(row, validateRow(row).fieldErrors);
+    }
 
     return row;
   };
-
   const clearDropIndicator = () => {
     if (dropTargetRow) {
       dropTargetRow.classList.remove("drop-before", "drop-after");
@@ -949,7 +999,190 @@ document.addEventListener("DOMContentLoaded", () => {
       if (durationCell) {
         durationCell.textContent = getTimeDisplayValue(durationValue);
       }
+      if (validationArmed) {
+        applyValidationUI(row, validateRow(row).fieldErrors);
+      }
     }
+  };
+
+  const getFieldValue = (row, fieldKey) => {
+    const field = row.querySelector(`[data-field="${fieldKey}"]`);
+    if (!field) {
+      return "";
+    }
+    if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) {
+      return field.value;
+    }
+    return field.dataset.timeValue || field.textContent || "";
+  };
+
+  const validateRow = (row) => {
+    const fieldErrors = {};
+    const titleValue = getFieldValue(row, "title").trim();
+    if (!titleValue) {
+      fieldErrors.title = "Campo obligatorio";
+    }
+    const authorValue = getFieldValue(row, "author").trim();
+    if (!authorValue) {
+      fieldErrors.author = "Campo obligatorio";
+    }
+    const modalityValue = getFieldValue(row, "modality").trim();
+    if (!modalityValue) {
+      fieldErrors.modality = "Campo obligatorio";
+    }
+    const musicTypeValue = getFieldValue(row, "musicType").trim();
+    if (!musicTypeValue) {
+      fieldErrors.musicType = "Campo obligatorio";
+    }
+
+    const tcInValue = getFieldValue(row, "tcIn").trim();
+    const tcOutValue = getFieldValue(row, "tcOut").trim();
+    const tcInValid = isValidTimeFormat(tcInValue);
+    const tcOutValid = isValidTimeFormat(tcOutValue);
+
+    if (!tcInValid) {
+      fieldErrors.tcIn = "Formato inválido (HH:MM:SS)";
+    }
+    if (!tcOutValid) {
+      fieldErrors.tcOut = "Formato inválido (HH:MM:SS)";
+    }
+
+    if (tcInValid && tcOutValid) {
+      const inSeconds = parseTimeToSeconds(tcInValue);
+      const outSeconds = parseTimeToSeconds(tcOutValue);
+      if (inSeconds !== null && outSeconds !== null && outSeconds <= inSeconds) {
+        fieldErrors.tcOut = "TC OUT debe ser mayor que TC IN";
+      }
+    }
+
+    return { fieldErrors, hasErrors: Object.keys(fieldErrors).length > 0 };
+  };
+
+  const applyValidationUI = (row, fieldErrors) => {
+    const fields = ["title", "author", "modality", "musicType", "tcIn", "tcOut"];
+    fields.forEach((fieldKey) => {
+      const field = row.querySelector(`[data-field="${fieldKey}"]`);
+      const message = row.querySelector(`[data-validation-message="${fieldKey}"]`);
+      const errorMessage = fieldErrors[fieldKey];
+      if (field) {
+        field.classList.toggle("is-error", Boolean(errorMessage));
+      }
+      if (message) {
+        message.textContent = errorMessage || "";
+        message.classList.toggle("is-visible", Boolean(errorMessage));
+      }
+    });
+  };
+
+  const validateAllRows = ({ applyUI = false } = {}) => {
+    const rows = Array.from(recordsBody.querySelectorAll(".records-list__row"));
+    let hasErrors = false;
+    rows.forEach((row) => {
+      const { fieldErrors, hasErrors: rowHasErrors } = validateRow(row);
+      if (rowHasErrors) {
+        hasErrors = true;
+      }
+      if (applyUI) {
+        applyValidationUI(row, fieldErrors);
+      }
+    });
+    return { hasErrors };
+  };    record[field] = value;
+    if (row) {
+      const durationValue = calculateDuration(record.tcIn, record.tcOut);
+      record.duration = durationValue;
+      const durationCell = row.querySelector('[data-col="duracion"]');
+      if (durationCell) {
+        durationCell.textContent = getTimeDisplayValue(durationValue);
+      }
+      if (validationArmed) {
+        applyValidationUI(row, validateRow(row).fieldErrors);
+      }
+    }
+  };
+
+  const getFieldValue = (row, fieldKey) => {
+    const field = row.querySelector(`[data-field="${fieldKey}"]`);
+    if (!field) {
+      return "";
+    }
+    if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) {
+      return field.value;
+    }
+    return field.dataset.timeValue || field.textContent || "";
+  };
+
+  const validateRow = (row) => {
+    const fieldErrors = {};
+    const titleValue = getFieldValue(row, "title").trim();
+    if (!titleValue) {
+      fieldErrors.title = "Campo obligatorio";
+    }
+    const authorValue = getFieldValue(row, "author").trim();
+    if (!authorValue) {
+      fieldErrors.author = "Campo obligatorio";
+    }
+    const modalityValue = getFieldValue(row, "modality").trim();
+    if (!modalityValue) {
+      fieldErrors.modality = "Campo obligatorio";
+    }
+    const musicTypeValue = getFieldValue(row, "musicType").trim();
+    if (!musicTypeValue) {
+      fieldErrors.musicType = "Campo obligatorio";
+    }
+
+    const tcInValue = getFieldValue(row, "tcIn").trim();
+    const tcOutValue = getFieldValue(row, "tcOut").trim();
+    const tcInValid = isValidTimeFormat(tcInValue);
+    const tcOutValid = isValidTimeFormat(tcOutValue);
+
+    if (!tcInValid) {
+      fieldErrors.tcIn = "Formato inválido (HH:MM:SS)";
+    }
+    if (!tcOutValid) {
+      fieldErrors.tcOut = "Formato inválido (HH:MM:SS)";
+    }
+
+    if (tcInValid && tcOutValid) {
+      const inSeconds = parseTimeToSeconds(tcInValue);
+      const outSeconds = parseTimeToSeconds(tcOutValue);
+      if (inSeconds !== null && outSeconds !== null && outSeconds <= inSeconds) {
+        fieldErrors.tcOut = "TC OUT debe ser mayor que TC IN";
+      }
+    }
+
+    return { fieldErrors, hasErrors: Object.keys(fieldErrors).length > 0 };
+  };
+
+  const applyValidationUI = (row, fieldErrors) => {
+    const fields = ["title", "author", "modality", "musicType", "tcIn", "tcOut"];
+    fields.forEach((fieldKey) => {
+      const field = row.querySelector(`[data-field="${fieldKey}"]`);
+      const message = row.querySelector(`[data-validation-message="${fieldKey}"]`);
+      const errorMessage = fieldErrors[fieldKey];
+      if (field) {
+        field.classList.toggle("is-error", Boolean(errorMessage));
+      }
+      if (message) {
+        message.textContent = errorMessage || "";
+        message.classList.toggle("is-visible", Boolean(errorMessage));
+      }
+    });
+  };
+
+  const validateAllRows = ({ applyUI = false } = {}) => {
+    const rows = Array.from(recordsBody.querySelectorAll(".records-list__row"));
+    let hasErrors = false;
+    rows.forEach((row) => {
+      const { fieldErrors, hasErrors: rowHasErrors } = validateRow(row);
+      if (rowHasErrors) {
+        hasErrors = true;
+      }
+      if (applyUI) {
+        applyValidationUI(row, fieldErrors);
+      }
+    });
+    return { hasErrors };
   };
   
   const renderRecords = () => {
@@ -1338,12 +1571,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (generateButton) {
     generateButton.addEventListener("click", () => {
+      validationArmed = true;
+      const { hasErrors } = validateAllRows({ applyUI: true });
+      if (hasErrors) {
+        return;
+      }
       setTimeout(() => {
         handleExportExcel();
       }, 0);
     });
   }
 });
+
 
 
 
