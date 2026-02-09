@@ -769,8 +769,14 @@ document.addEventListener("DOMContentLoaded", () => {
     performerCell.appendChild(performerInput);
     row.appendChild(performerCell);
 
+    const timingGroup = document.createElement("div");
+    timingGroup.className = "records-list__cell records-list__timing-group";
+
+    const timingFields = document.createElement("div");
+    timingFields.className = "records-list__timing-fields";
+
     const tcInCell = document.createElement("div");
-    tcInCell.className = "records-list__cell records-list__cell--stacked records-list__cell--time-wrapper";
+    tcInCell.className = "records-list__cell records-list__cell--time-wrapper";
     tcInCell.dataset.col = "tc_in";
     const tcInDisplay = document.createElement("div");
     tcInDisplay.className = "records-list__cell records-list__cell--time records-list__time-display";
@@ -781,11 +787,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (record.tcIn) {
       tcInDisplay.dataset.timeValue = String(record.tcIn);
     }
-    tcInCell.append(tcInDisplay, createValidationMessage("tcIn"));
-    row.appendChild(tcInCell);
+    tcInCell.append(tcInDisplay);
 
     const tcOutCell = document.createElement("div");
-    tcOutCell.className = "records-list__cell records-list__cell--stacked records-list__cell--time-wrapper";
+    tcOutCell.className = "records-list__cell records-list__cell--time-wrapper";
     tcOutCell.dataset.col = "tc_out";
     const tcOutDisplay = document.createElement("div");
     tcOutDisplay.className = "records-list__cell records-list__cell--time records-list__time-display";
@@ -796,15 +801,24 @@ document.addEventListener("DOMContentLoaded", () => {
     if (record.tcOut) {
       tcOutDisplay.dataset.timeValue = String(record.tcOut);
     }
-    tcOutCell.append(tcOutDisplay, createValidationMessage("tcOut"));
-    row.appendChild(tcOutCell);
+    tcOutCell.append(tcOutDisplay);
+
     const durationCell = document.createElement("div");
     durationCell.className = "records-list__cell";
     durationCell.dataset.col = "duracion";
     const durationValue = calculateDuration(record.tcIn, record.tcOut);
     record.duration = durationValue;
     durationCell.textContent = getTimeDisplayValue(durationValue);
-    row.appendChild(durationCell);
+
+    const timingErrorSlot = document.createElement("div");
+    timingErrorSlot.className =
+      "records-list__validation-message records-list__validation-message--timing";
+    timingErrorSlot.dataset.errorSlot = "timing";
+
+    timingFields.append(tcInCell, tcOutCell, durationCell);
+    timingGroup.append(timingFields, timingErrorSlot);
+    row.appendChild(timingGroup);
+
 
     const modalityCell = document.createElement("div");
     modalityCell.className = "records-list__cell records-list__field-cell records-list__cell--stacked";
@@ -1060,18 +1074,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const applyValidationUI = (row, fieldErrors) => {
     const fields = ["title", "author", "modality", "musicType", "tcIn", "tcOut"];
+    const messageFields = ["title", "author", "modality", "musicType"];
+
     fields.forEach((fieldKey) => {
       const field = row.querySelector(`[data-field="${fieldKey}"]`);
-      const message = row.querySelector(`[data-validation-message="${fieldKey}"]`);
       const errorMessage = fieldErrors[fieldKey];
       if (field) {
         field.classList.toggle("is-error", Boolean(errorMessage));
       }
+    });
+
+    messageFields.forEach((fieldKey) => {
+      const message = row.querySelector(`[data-validation-message="${fieldKey}"]`);
+      const errorMessage = fieldErrors[fieldKey];
       if (message) {
         message.textContent = errorMessage || "";
         message.classList.toggle("is-visible", Boolean(errorMessage));
       }
     });
+
+    const timingMessage = row.querySelector('[data-error-slot="timing"]');
+    const timingError = fieldErrors.tcOut || fieldErrors.tcIn || "";
+    if (timingMessage) {
+      timingMessage.textContent = timingError;
+      timingMessage.classList.toggle("is-visible", Boolean(timingError));
+    }
   };
 
   const validateAllRows = ({ applyUI = false } = {}) => {
@@ -1486,6 +1513,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
