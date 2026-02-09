@@ -115,6 +115,8 @@ document.addEventListener("DOMContentLoaded", () => {
     checked: false,
     title: "",
     author: "",
+    modality: "",
+    musicType: "",
     tcIn: "",
     duration: "",
     tcOut: "",
@@ -769,13 +771,19 @@ document.addEventListener("DOMContentLoaded", () => {
     modalityCell.dataset.col = "modalidad";
     const modalitySelect = document.createElement("select");
     modalitySelect.className = "records-list__field";
+    const modalityPlaceholder = document.createElement("option");
+    modalityPlaceholder.value = "";
+    modalityPlaceholder.textContent = "Selecciona…";
+    modalityPlaceholder.disabled = true;
+    modalityPlaceholder.hidden = true;
+    modalitySelect.appendChild(modalityPlaceholder);
     ["Ambientaciones", "Caretas", "Fondos", "Ráfagas", "Sinfónicos", "Variedades"].forEach((optionLabel) => {
       const option = document.createElement("option");
       option.value = optionLabel;
       option.textContent = optionLabel;
       modalitySelect.appendChild(option);
     });
-    modalitySelect.value = record.modality || "Ambientaciones";
+    modalitySelect.value = record.modality ?? "";
     modalitySelect.addEventListener("change", (event) => {
       record.modality = event.target.value;
     });
@@ -787,13 +795,19 @@ document.addEventListener("DOMContentLoaded", () => {
     musicTypeCell.dataset.col = "tipo_musica";
     const musicTypeSelect = document.createElement("select");
     musicTypeSelect.className = "records-list__field";
+    const musicTypePlaceholder = document.createElement("option");
+    musicTypePlaceholder.value = "";
+    musicTypePlaceholder.textContent = "Selecciona…";
+    musicTypePlaceholder.disabled = true;
+    musicTypePlaceholder.hidden = true;
+    musicTypeSelect.appendChild(musicTypePlaceholder);
     ["Librería", "Comercial", "Original"].forEach((optionLabel) => {
       const option = document.createElement("option");
       option.value = optionLabel;
       option.textContent = optionLabel;
       musicTypeSelect.appendChild(option);
     });
-    musicTypeSelect.value = record.musicType || "Librería";
+    musicTypeSelect.value = record.musicType ?? "";
     musicTypeSelect.addEventListener("change", (event) => {
       record.musicType = event.target.value;
     });
@@ -1322,3 +1336,4 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
