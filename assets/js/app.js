@@ -936,10 +936,7 @@ document.addEventListener("DOMContentLoaded", () => {
     modalityCell.append(modalitySelect, createValidationMessage("modality"));
     row.appendChild(modalityCell);
 
-    musicTypeSelect.value =
-      record.musicType !== null && record.musicType !== undefined
-        ? record.musicType
-        : "";
+    const musicTypeCell = document.createElement("div");
     musicTypeCell.className = "records-list__cell records-list__field-cell records-list__cell--stacked";
     musicTypeCell.dataset.col = "tipo_musica";
     const musicTypeSelect = document.createElement("select");
@@ -1838,6 +1835,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
