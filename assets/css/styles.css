@@ -491,6 +491,20 @@ body {
   color: #1a1a1a;
 }
 
+.records-list__timing-group {
+  grid-column: span 3;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.records-list__timing-fields {
+  display: grid;
+  grid-template-columns: var(--w-tc-in) var(--w-duracion) var(--w-tc-out);
+  column-gap: var(--col-gap);
+  align-items: center;
+}
+
 .records-list__row .records-list__cell[data-col="duracion"],
 .records-list__row .records-list__cell[data-col="tc_in"],
 .records-list__row .records-list__cell[data-col="tc_out"] {
@@ -517,10 +531,15 @@ body {
   visibility: hidden;
 }
 
+.records-list__validation-message--timing {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .records-list__validation-message.is-visible {
   visibility: visible;
 }
-
 .records-list__cell--time {
   width: 100%;
   height: 24px;
@@ -767,6 +786,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
