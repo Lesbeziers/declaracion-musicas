@@ -6,12 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const backButton = document.querySelector(".layout-bar__icon--back");
   const generateButton = document.querySelector(".layout-bar__button--generate");
   const importButton = Array.from(document.querySelectorAll(".layout-bar__button")).find(
-    (button) => {
-      const buttonText = button.textContent;
-      return (
-        buttonText && buttonText.trim().toUpperCase() === "IMPORTAR CUE SHEET"
-      );
-    }
+    (button) => button.textContent?.trim().toUpperCase() === "IMPORTAR CUE SHEET"
   );
   const recordsViewport = document.querySelector(".records-list__viewport");
   const recordsBody = document.querySelector(".records-list__body");
@@ -140,14 +135,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return 0;
     }
 
-    const selectionStart =
-      input.selectionStart !== null && input.selectionStart !== undefined
-        ? input.selectionStart
-        : input.value.length;
-    const selectionEnd =
-      input.selectionEnd !== null && input.selectionEnd !== undefined
-        ? input.selectionEnd
-        : input.value.length;
+    const selectionStart = input.selectionStart ?? input.value.length;
+    const selectionEnd = input.selectionEnd ?? input.value.length;
     return Math.max(0, selectionEnd - selectionStart);
   };
 
@@ -253,9 +242,7 @@ document.addEventListener("DOMContentLoaded", () => {
     recordsViewport.removeEventListener("scroll", handleScroll);
     if (activeTimeOverlay) {
       const spinner = activeTimeOverlay.querySelector(".time-spinner");
-      if (spinner) {
-        spinner.removeEventListener("click", handleSpinnerClick);
-      }
+      spinner?.removeEventListener("click", handleSpinnerClick);
     }
     timeOverlayListeners = null;
   };
@@ -351,7 +338,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     closeTimeOverlay();
     activeTimeCell = cell;
-    const rawText = (cell.textContent || "").trim();
+    const rawText = cell.textContent?.trim() || "";
     prevValueString =
       cell.dataset.timeValue || (isTimeString(rawText) ? rawText : "");
 
@@ -565,9 +552,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("mousedown", handlePointerDown);
     window.addEventListener("resize", handleResize);
     recordsViewport.addEventListener("scroll", handleScroll);
-    if (spinner) {
-      spinner.addEventListener("click", handleSpinnerClick);
-    }
+    spinner?.addEventListener("click", handleSpinnerClick);
   };
 
   const closeOverlay = ({ cancel = false } = {}) => {
@@ -923,10 +908,7 @@ document.addEventListener("DOMContentLoaded", () => {
       option.textContent = optionLabel;
       modalitySelect.appendChild(option);
     });
-    modalitySelect.value =
-      record.modality !== null && record.modality !== undefined
-        ? record.modality
-        : "";
+    modalitySelect.value = record.modality ?? "";
     modalitySelect.addEventListener("change", (event) => {
       record.modality = event.target.value;
       if (shouldApplyValidation(row)) {
@@ -1033,10 +1015,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const getNearestRow = (clientX, clientY) => {
-     const hoveredElement = document.elementFromPoint(clientX, clientY);
-    const hovered = hoveredElement
-      ? hoveredElement.closest(".records-list__row")
-      : null;
+    const hovered = document
+      .elementFromPoint(clientX, clientY)
+      ?.closest(".records-list__row");
     if (hovered && hovered !== draggedRow && hovered !== dragPlaceholder) {
       return hovered;
     }
@@ -1088,7 +1069,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     const row = cell.closest(".records-list__row");
-    const recordId = Number(row ? row.dataset.recordId : null);
+    const recordId = Number(row?.dataset.recordId);
     if (!recordId) {
       return;
     }
@@ -1199,9 +1180,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     fields.forEach((fieldKey) => {
       const field = row.querySelector(`[data-field="${fieldKey}"]`);
-      if (field) {
-        field.classList.remove("is-error");
-      }
+      field?.classList.remove("is-error");
     });
 
     messageFields.forEach((fieldKey) => {
@@ -1464,8 +1443,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const insertedText =
-      event.data !== null && event.data !== undefined ? event.data : "";
+    const insertedText = event.data ?? "";
     const selectedLength = getSelectionLength(overlayInput);
     const nextLength = overlayInput.value.length - selectedLength + insertedText.length;
 
@@ -1482,22 +1460,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     event.preventDefault();
-    const clipboardText = event.clipboardData
-      ? event.clipboardData.getData("text")
-      : "";
+    const clipboardText = event.clipboardData?.getData("text") ?? "";
     const selectedLength = getSelectionLength(overlayInput);
     const available = maxLength - (overlayInput.value.length - selectedLength);
     const safeAvailable = Math.max(0, available);
     const allowedText = clipboardText.slice(0, safeAvailable);
-    const rangeStart =
-      overlayInput.selectionStart !== null && overlayInput.selectionStart !== undefined
-        ? overlayInput.selectionStart
-        : 0;
-    const rangeEnd =
-      overlayInput.selectionEnd !== null && overlayInput.selectionEnd !== undefined
-        ? overlayInput.selectionEnd
-        : 0;
-    overlayInput.setRangeText(allowedText, rangeStart, rangeEnd, "end");
+
+    overlayInput.setRangeText(allowedText, overlayInput.selectionStart ?? 0, overlayInput.selectionEnd ?? 0, "end");
     overlayInput.dispatchEvent(new Event("input", { bubbles: true }));
 
     if (clipboardText.length > allowedText.length) {
@@ -1544,7 +1513,6 @@ document.addEventListener("DOMContentLoaded", () => {
       closeOverlay({ cancel: true });
       shouldSkipFocusOpen = true;
       inputToBlur?.blur();
-      return;
     }
   });
 
@@ -1576,17 +1544,14 @@ document.addEventListener("DOMContentLoaded", () => {
       record.libraryName,
       record.duration,
     ];
-    const hasText = values.some((value) => Boolean(value && value.trim()));
+    const hasText = values.some((value) => String(value ?? "").trim() !== "");
     const hasCustomTiming =
       record.tcIn !== TIME_PLACEHOLDER || record.tcOut !== TIME_PLACEHOLDER;
     return !hasText && !hasCustomTiming;
   };
 
   const hasExistingData = () => {
-    if (
-      (programInput && programInput.value.trim()) ||
-      (episodeInput && episodeInput.value.trim())
-    ) {
+    if (programInput?.value.trim() || episodeInput?.value.trim()) {
       return true;
     }
     if (records.length > 1) {
@@ -1691,7 +1656,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    lastDeleteSnapshot = null;
     renderRecords();
     updateBackButtonState();
   };
@@ -1713,7 +1677,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   importInput.addEventListener("change", async (event) => {
     const input = event.target;
-    const file = input.files ? input.files[0] : null;
+    const file = input.files?.[0];
     if (!file) {
       return;
     }
@@ -1750,8 +1714,8 @@ document.addEventListener("DOMContentLoaded", () => {
         throw new Error("No se encontró la hoja MODULOSGAE en la plantilla.");
       }
 
-      sheet.range("B5:H5").value(programInput ? programInput.value : "");
-      const rawEpisodeValue = episodeInput ? episodeInput.value : "";
+      sheet.range("B5:H5").value(programInput?.value || "");
+      const rawEpisodeValue = episodeInput?.value || "";
       const trimmedEpisodeValue = rawEpisodeValue.trim();
       let exportEpisodeValue = trimmedEpisodeValue;
       if (trimmedEpisodeValue && /^\d+$/.test(trimmedEpisodeValue)) {
@@ -1835,12 +1799,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
-
-
-
-
-
-
 
 
 
