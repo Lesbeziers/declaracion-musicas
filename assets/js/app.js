@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const plusButton = document.querySelector(".layout-bar__icon--plus");
   const minusButton = document.querySelector(".layout-bar__icon--minus");
   const backButton = document.querySelector(".layout-bar__icon--back");
+  const exportButton = document.querySelector(".layout-bar__button--export");
   const recordsViewport = document.querySelector(".records-list__viewport");
   const recordsBody = document.querySelector(".records-list__body");
   const maxLength = 100;
@@ -269,7 +270,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return hours * 3600 + minutes * 60 + seconds;
   };
 
-  const formatSecondsAsTime = (totalSeconds) => {
+    const formatSecondsAsTime = (totalSeconds) => {
     const safeSeconds = Math.max(0, totalSeconds);
     const hours = Math.floor(safeSeconds / 3600);
     const minutes = Math.floor((safeSeconds % 3600) / 60);
@@ -281,6 +282,26 @@ document.addEventListener("DOMContentLoaded", () => {
     const inSeconds = parseTimeToSeconds(tcIn);
     const outSeconds = parseTimeToSeconds(tcOut);
     if (inSeconds === null || outSeconds === null) {
+      return "";
+    }
+    return formatSecondsAsTime(outSeconds - inSeconds);
+  };
+
+  const buildExportFilename = () => {
+    const now = new Date();
+    const pad = (value) => String(value).padStart(2, "0");
+    const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const time = `${pad(now.getHours())}${pad(now.getMinutes())}`;
+    return `Cue-Sheet_${date}_${time}.xlsx`;
+  };
+
+  const resolveDurationForExport = (tcIn, tcOut) => {
+    const inSeconds = parseTimeToSeconds(tcIn);
+    const outSeconds = parseTimeToSeconds(tcOut);
+    if (inSeconds === null || outSeconds === null) {
+      return "";
+    }
+    if (outSeconds < inSeconds) {
       return "";
     }
     return formatSecondsAsTime(outSeconds - inSeconds);
@@ -1213,27 +1234,87 @@ document.addEventListener("DOMContentLoaded", () => {
   if (backButton) {
     backButton.addEventListener("click", undoLastDelete);
   }
+
+  const handleExportExcel = async () => {
+    if (!window.XlsxPopulate) {
+      console.error("XlsxPopulate no está disponible.");
+      return;
+    }
+
+    try {
+      const response = await fetch("assets/excel/Cue-Sheet_Template.xlsx");
+      if (!response.ok) {
+        throw new Error("No se pudo cargar la plantilla de Excel.");
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      const workbook = await window.XlsxPopulate.fromDataAsync(arrayBuffer);
+      const sheet = workbook.sheet("MODULOSGAE");
+      if (!sheet) {
+        throw new Error("No se encontró la hoja MODULOSGAE en la plantilla.");
+      }
+
+      sheet.range("B5:H5").value(programInput?.value || "");
+      sheet.cell("J5").value(episodeInput?.value || "");
+
+      const startRow = 8;
+      const startColumn = "A";
+      const endColumn = "J";
+      const templateStyleRange = sheet.range(`${startColumn}${startRow}:${endColumn}${startRow}`);
+      const templateRowHeight = sheet.row(startRow).height();
+      const usedRange = sheet.usedRange();
+      const lastUsedRow = usedRange ? usedRange.endCell().rowNumber() : startRow;
+      const lastDataRow = Math.max(startRow, lastUsedRow);
+      const requiredLastRow = Math.max(startRow, startRow + records.length - 1);
+      const totalRows = Math.max(lastDataRow, requiredLastRow);
+
+      for (let rowIndex = lastDataRow + 1; rowIndex <= totalRows; rowIndex += 1) {
+        templateStyleRange.copyTo(
+          sheet.range(`${startColumn}${rowIndex}:${endColumn}${rowIndex}`)
+        );
+        if (templateRowHeight) {
+          sheet.row(rowIndex).height(templateRowHeight);
+        }
+      }
+
+      const rowsPayload = Array.from({ length: totalRows - startRow + 1 }, () =>
+        new Array(10).fill("")
+      );
+
+      records.forEach((record, index) => {
+        const rowValues = [
+          record.title || "",
+          record.author || "",
+          record.performer || "",
+          record.tcIn || "",
+          record.tcOut || "",
+          resolveDurationForExport(record.tcIn, record.tcOut),
+          record.modality || "",
+          record.musicType || "",
+          record.libraryCode || "",
+          record.libraryName || "",
+        ];
+        rowsPayload[index] = rowValues;
+      });
+
+      sheet
+        .range(`${startColumn}${startRow}:${endColumn}${totalRows}`)
+        .value(rowsPayload);
+
+      const blob = await workbook.outputAsync("blob");
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = buildExportFilename();
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  if (exportButton) {
+    exportButton.addEventListener("click", handleExportExcel);
+  }
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
