@@ -1239,7 +1239,7 @@ document.addEventListener("DOMContentLoaded", () => {
     minusButton.disabled = records.length <= 1;
   };
 
-    const updateMasterCheckboxTooltip = () => {
+  const updateMasterCheckboxTooltip = () => {
     if (!masterRecordsCheckbox) {
       return;
     }
@@ -2093,6 +2093,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
