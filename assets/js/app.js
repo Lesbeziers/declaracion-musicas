@@ -179,6 +179,43 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     setActiveHeaderCell(index);
   };
+
+  const resolveHeaderSourceFromFocus = (target) => {
+    if (!(target instanceof Element)) {
+      return null;
+    }
+
+    if (target === overlayInput && activeEditorTarget) {
+      return activeEditorTarget;
+    }
+
+    if (activeTimeOverlay && activeTimeOverlay.contains(target)) {
+      return activeTimeCell;
+    }
+
+    return target.closest(
+      ".records-list__field, [data-role=\"time-cell\"], .records-list__time-display"
+    );
+  };
+
+  const isEditableFocusWithinRecords = (target) => {
+    if (!(target instanceof Element)) {
+      return false;
+    }
+
+    if (target === overlayInput && activeEditorTarget) {
+      return true;
+    }
+
+    if (activeTimeOverlay && activeTimeOverlay.contains(target)) {
+      return true;
+    }
+
+    const editableTarget = target.closest(
+      ".records-list__field, [data-role=\"time-cell\"], .records-list__time-display"
+    );
+    return Boolean(editableTarget && recordsViewport.contains(editableTarget));
+  };
   const updateBackButtonState = () => {
     if (backButton) {
       backButton.disabled = !lastDeleteSnapshot;
@@ -1452,31 +1489,32 @@ document.addEventListener("DOMContentLoaded", () => {
   recordsViewport.addEventListener(
     "focusin",
     (event) => {
-      const editableTarget = event.target.closest(".records-list__field, [data-role=\"time-cell\"]");
-      if (!editableTarget) {
+      const headerSource = resolveHeaderSourceFromFocus(event.target);
+      if (!headerSource) {
         return;
       }
-      updateActiveHeaderFromTarget(editableTarget);
+      updateActiveHeaderFromTarget(headerSource);
     },
     true
   );
 
-  recordsViewport.addEventListener("focusout", () => {
-    window.setTimeout(() => {
-      const activeElement = document.activeElement;
-      if (
-        recordsViewport.contains(activeElement) ||
-        activeElement === overlayInput ||
-        (activeTimeOverlay && activeTimeOverlay.contains(activeElement))
-      ) {
-        return;
-      }
-      if (activeTimeOverlay) {
-        return;
-      }
-      clearActiveHeaderCell();
-    }, 0);
-  });
+  recordsViewport.addEventListener(
+    "focusout",
+    () => {
+      window.setTimeout(() => {
+        const activeElement = document.activeElement;
+        if (isEditableFocusWithinRecords(activeElement)) {
+          const headerSource = resolveHeaderSourceFromFocus(activeElement);
+          if (headerSource) {
+            updateActiveHeaderFromTarget(headerSource);
+          }
+          return;
+        }
+        clearActiveHeaderCell();
+      }, 0);
+    },
+    true
+  );
 
   recordsBody.addEventListener("focusin", (event) => {
     const input = event.target.closest(".dm-input");
@@ -1924,6 +1962,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
