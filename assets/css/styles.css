@@ -349,11 +349,6 @@ body {
   visibility: visible;
 }
 
-.records-list__master-checkbox[data-tooltip]:hover::before,
-.records-list__master-checkbox[data-tooltip]:focus-within::before {
-  opacity: 1;
-}
-
 .layout-bar__icon--plus {
   background-image: url("../img/ic_mas.svg");
 }
@@ -865,6 +860,7 @@ select.records-list__field:focus-visible {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
