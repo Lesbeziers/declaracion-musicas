@@ -669,21 +669,22 @@ document.addEventListener("DOMContentLoaded", () => {
         const order = ["hh", "mm", "ss"];
         const currentIndex = order.indexOf(timeState.activeUnit);
         const direction = event.shiftKey ? -1 : 1;
-        const nextIndex = currentIndex + direction;
+        const atStartBoundary = direction === -1 && currentIndex === 0;
+        const atEndBoundary = direction === 1 && currentIndex === order.length - 1;
 
-        if (nextIndex < 0 || nextIndex >= order.length) {
+        if (!atStartBoundary && !atEndBoundary) {
           event.preventDefault();
-          const sourceCell = activeTimeCell;
-          commitTime();
-          if (sourceCell) {
-            const nextControl = getNextRowEditableControl({ sourceElement: sourceCell, direction });
-            nextControl?.focus();
-          }
+          setActiveUnit(order[currentIndex + direction]);
           return;
         }
 
         event.preventDefault();
-        setActiveUnit(order[nextIndex]);
+        const sourceCell = activeTimeCell;
+        commitTime();
+        if (sourceCell) {
+          const nextControl = getNextRowEditableControl({ sourceElement: sourceCell, direction });
+          nextControl?.focus();
+        }
         return;
       }
       if (event.key === "Escape") {
@@ -1754,11 +1755,20 @@ document.addEventListener("DOMContentLoaded", () => {
     if (event.key !== "Tab") {
       return;
     }
+    
+    if (event.defaultPrevented) {
+      return;
+    }
 
     const control = event.target.closest(
       'select[data-field], [data-role="time-cell"][data-field]'
     );
     if (!control) {
+      return;
+    }
+
+        const isTimeControl = control.matches('[data-role="time-cell"][data-field]');
+    if (isTimeControl && activeTimeOverlay && activeTimeCell === control) {
       return;
     }
 
@@ -2054,3 +2064,4 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
