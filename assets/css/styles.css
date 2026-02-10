@@ -467,6 +467,10 @@ body {
   text-align: center;
 }
 
+.records-list__header .records-list__cell--controls {
+  justify-content: center;
+}
+
 .records-list__header .records-list__cell.is-active {
   color: var(--focus-blue, #31d0f4);
 }
@@ -801,6 +805,7 @@ select.records-list__field:focus-visible {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
