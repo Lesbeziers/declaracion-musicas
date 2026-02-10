@@ -689,8 +689,8 @@ body {
 
 select.records-list__field:focus,
 select.records-list__field:focus-visible {
-  border: 2px solid #31d0f4;
-  outline: 2px solid transparent;
+  border: 1px solid #31d0f4;
+  outline: 1px solid transparent;
   box-shadow: 0 0 0 1px #31d0f4;
 }
 
@@ -801,6 +801,7 @@ select.records-list__field:focus-visible {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
