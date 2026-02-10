@@ -1302,19 +1302,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const fieldErrors = {};
     const titleValue = getFieldValue(row, "title").trim();
     if (!titleValue) {
-      fieldErrors.title = "Campo obligatorio";
+      fieldErrors.title = "OBLIGATORIO";
     }
     const authorValue = getFieldValue(row, "author").trim();
     if (!authorValue) {
-      fieldErrors.author = "Campo obligatorio";
+      fieldErrors.author = "OBLIGATORIO";
     }
     const modalityValue = getFieldValue(row, "modality").trim();
     if (!modalityValue) {
-      fieldErrors.modality = "Campo obligatorio";
+      fieldErrors.modality = "OBLIGATORIO";
     }
     const musicTypeValue = getFieldValue(row, "musicType").trim();
     if (!musicTypeValue) {
-      fieldErrors.musicType = "Campo obligatorio";
+      fieldErrors.musicType = "OBLIGATORIO";
     }
 
     const tcInValue = getFieldValue(row, "tcIn").trim();
@@ -1333,7 +1333,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const inSeconds = parseTimeToSeconds(tcInValue);
       const outSeconds = parseTimeToSeconds(tcOutValue);
       if (inSeconds !== null && outSeconds !== null && outSeconds <= inSeconds) {
-        fieldErrors.tcOut = "TC OUT debe ser mayor que TC IN";
+        fieldErrors.tcOut = "TC-OUT DEBE SER MAYOR QUE TC-IN";
       }
     }
 
@@ -2093,6 +2093,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
