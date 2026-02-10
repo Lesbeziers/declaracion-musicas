@@ -78,7 +78,16 @@
         <section class="records-list">
           <div class="records-list__viewport">
             <div class="records-list__header records-list__grid">
-              <div class="records-list__cell records-list__cell--controls"></div>
+              <div class="records-list__cell records-list__cell--controls">
+                <input
+                  id="masterRecordsCheckbox"
+                  class="records-list__checkbox"
+                  type="checkbox"
+                  title="Seleccionar todas las filas"
+                  aria-label="Seleccionar o deseleccionar todas las filas"
+                  tabindex="-1"
+                />
+              </div>
               <div class="records-list__cell">TÍTULO</div>
               <div class="records-list__cell">AUTOR</div>
               <div class="records-list__cell">INTÉRPRETE</div>
@@ -100,6 +109,7 @@
     <div id="time-overlay-root" aria-hidden="true"></div>
   </body>
 </html>
+
 
 
 
