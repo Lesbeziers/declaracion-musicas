@@ -468,7 +468,7 @@ body {
 }
 
 .records-list__header .records-list__cell--controls {
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .records-list__header .records-list__cell.is-active {
@@ -805,6 +805,7 @@ select.records-list__field:focus-visible {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
