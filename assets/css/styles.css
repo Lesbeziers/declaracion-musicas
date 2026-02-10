@@ -756,7 +756,7 @@ select.records-list__field:focus-visible {
   width: var(--records-control-size);
   height: var(--records-control-size);
   appearance: none;
-  border: none;
+  border: 1px solid #bcbcbc;
   border-radius: 2px;
   background-color: #ffffff;
   cursor: pointer;
@@ -805,6 +805,7 @@ select.records-list__field:focus-visible {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
