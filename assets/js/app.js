@@ -1248,7 +1248,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const tooltipText = masterRecordsCheckbox.checked
       ? "Deseleccionar todas las filas"
       : "Seleccionar todas las filas";
-    masterRecordsCheckbox.title = tooltipText;
     if (masterRecordsCheckboxTooltip) {
       masterRecordsCheckboxTooltip.setAttribute("data-tooltip", tooltipText);
     }
@@ -2097,6 +2096,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
