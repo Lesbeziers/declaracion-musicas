@@ -18,6 +18,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const textMeasureCanvas = document.createElement("canvas");
   const textMeasureContext = textMeasureCanvas.getContext("2d");
   const TIME_PLACEHOLDER = "00:00:00";
+  const ROW_TAB_SEQUENCE = [
+    "title",
+    "author",
+    "performer",
+    "tcIn",
+    "tcOut",
+    "modality",
+    "musicType",
+    "libraryCode",
+    "libraryName",
+  ];
 
   if (programInput && episodeInput) {
     const addValidation = (input) => {
@@ -441,6 +452,40 @@ document.addEventListener("DOMContentLoaded", () => {
     return formatSecondsAsTime(outSeconds - inSeconds);
   };
 
+  const getRowEditableControl = (row, fieldKey) => {
+    if (!row) {
+      return null;
+    }
+    if (fieldKey === "tcIn" || fieldKey === "tcOut") {
+      return row.querySelector(`[data-role="time-cell"][data-field="${fieldKey}"]`);
+    }
+    return row.querySelector(`[data-field="${fieldKey}"]`);
+  };
+
+  const getNextRowEditableControl = ({ sourceElement, direction }) => {
+    const row = sourceElement?.closest(".records-list__row");
+    if (!row) {
+      return null;
+    }
+
+    const sourceField = sourceElement.dataset.field;
+    if (!sourceField) {
+      return null;
+    }
+
+    const currentIndex = ROW_TAB_SEQUENCE.indexOf(sourceField);
+    if (currentIndex === -1) {
+      return null;
+    }
+
+    const nextField = ROW_TAB_SEQUENCE[currentIndex + direction];
+    if (!nextField) {
+      return null;
+    }
+
+    return getRowEditableControl(row, nextField);
+  };
+
   const openTimeOverlay = (cell) => {
     if (!cell || !timeOverlayRoot) {
       return;
@@ -621,11 +666,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const handleKeydown = (event) => {
       if (event.key === "Tab") {
-        event.preventDefault();
         const order = ["hh", "mm", "ss"];
         const currentIndex = order.indexOf(timeState.activeUnit);
         const direction = event.shiftKey ? -1 : 1;
-        const nextIndex = (currentIndex + direction + order.length) % order.length;
+        const nextIndex = currentIndex + direction;
+
+        if (nextIndex < 0 || nextIndex >= order.length) {
+          event.preventDefault();
+          const sourceCell = activeTimeCell;
+          commitTime();
+          if (sourceCell) {
+            const nextControl = getNextRowEditableControl({ sourceElement: sourceCell, direction });
+            nextControl?.focus();
+          }
+          return;
+        }
+
+        event.preventDefault();
         setActiveUnit(order[nextIndex]);
         return;
       }
@@ -946,6 +1003,7 @@ document.addEventListener("DOMContentLoaded", () => {
     performerInput.maxLength = maxLength;
     performerInput.value = record.performer || "";
     performerInput.placeholder = "Intérprete";
+    performerInput.dataset.field = "performer";
     performerInput.addEventListener("input", (event) => {
       record.performer = event.target.value;
     });
@@ -1071,6 +1129,7 @@ document.addEventListener("DOMContentLoaded", () => {
     libraryCodeInput.maxLength = maxLength;
     libraryCodeInput.value = record.libraryCode || "";
     libraryCodeInput.placeholder = "Código de librería";
+    libraryCodeInput.dataset.field = "libraryCode";
     libraryCodeInput.addEventListener("input", (event) => {
       record.libraryCode = event.target.value;
     });
@@ -1086,6 +1145,7 @@ document.addEventListener("DOMContentLoaded", () => {
     libraryNameInput.maxLength = maxLength;
     libraryNameInput.value = record.libraryName || "";
     libraryNameInput.placeholder = "Nombre de librería";
+    libraryNameInput.dataset.field = "libraryName";
     libraryNameInput.addEventListener("input", (event) => {
       record.libraryName = event.target.value;
     });
@@ -1553,7 +1613,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!timeCell) {
       return;
     }
-    openTimeOverlay(timeCell);
+    window.setTimeout(() => {
+      if (document.activeElement === timeCell) {
+        openTimeOverlay(timeCell);
+      }
+    }, 0);
   });
 
   recordsBody.addEventListener("keydown", (event) => {
@@ -1645,20 +1709,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (event.key === "Tab") {
-      event.preventDefault();
-      const row = activeEditorTarget.closest(".records-list__row");
-      const rowInputs = row ? Array.from(row.querySelectorAll(".dm-input")) : [];
-      if (!rowInputs.length) {
+      const delta = event.shiftKey ? -1 : 1;
+      const nextControl = getNextRowEditableControl({
+        sourceElement: activeEditorTarget,
+        direction: delta,
+      });
+      if (!nextControl) {
+        event.preventDefault();
+        const inputToBlur = activeEditorTarget;
+        closeOverlay();
+        inputToBlur?.blur();
         return;
       }
 
-      const currentIndex = rowInputs.indexOf(activeEditorTarget);
-      const delta = event.shiftKey ? -1 : 1;
-      const nextIndex = (currentIndex + delta + rowInputs.length) % rowInputs.length;
-      const nextInput = rowInputs[nextIndex];
+      event.preventDefault();
       closeOverlay();
-      shouldSkipFocusOpen = false;
-      nextInput.focus();
+      nextControl.focus();
       return;
     }
 
@@ -1682,6 +1748,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
   overlayInput.addEventListener("blur", () => {
     closeOverlay();
+  });
+
+  recordsBody.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") {
+      return;
+    }
+
+    const control = event.target.closest(
+      'select[data-field], [data-role="time-cell"][data-field]'
+    );
+    if (!control) {
+      return;
+    }
+
+    const delta = event.shiftKey ? -1 : 1;
+    const nextControl = getNextRowEditableControl({
+      sourceElement: control,
+      direction: delta,
+    });
+
+    if (!nextControl) {
+      return;
+    }
+
+    event.preventDefault();
+    nextControl.focus();
   });
 
   window.addEventListener("resize", updateOverlayPosition);
@@ -1962,14 +2054,3 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
-
-
-
-
-
-
-
-
-
-
-
