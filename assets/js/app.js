@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const recordsBody = document.querySelector(".records-list__body");
   const recordsHeader = document.querySelector(".records-list__header");
   const masterRecordsCheckbox = document.getElementById("masterRecordsCheckbox");
+  const masterRecordsCheckboxTooltip = document.querySelector(".records-list__master-checkbox");
   const headerCells = recordsHeader
     ? Array.from(recordsHeader.querySelectorAll(".records-list__cell"))
     : [];
@@ -1248,6 +1249,9 @@ document.addEventListener("DOMContentLoaded", () => {
       ? "Deseleccionar todas las filas"
       : "Seleccionar todas las filas";
     masterRecordsCheckbox.title = tooltipText;
+    if (masterRecordsCheckboxTooltip) {
+      masterRecordsCheckboxTooltip.setAttribute("data-tooltip", tooltipText);
+    }
   };
 
   const syncMasterCheckboxState = () => {
@@ -2093,6 +2097,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
