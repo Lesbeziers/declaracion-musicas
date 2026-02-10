@@ -304,8 +304,8 @@ body {
   content: attr(data-tooltip);
   position: absolute;
   left: 50%;
-  bottom: calc(100% + 6px);
-  transform: translate(-50%, 4px);
+  top: calc(100% + 6px);
+  transform: translate(-50%, -4px);
   opacity: 0;
   pointer-events: none;
   z-index: 20;
@@ -324,7 +324,7 @@ body {
   content: "";
   position: absolute;
   left: 50%;
-  bottom: calc(100% + 2px);
+  top: calc(100% + 2px);
   transform: translateX(-50%);
   opacity: 0;
   pointer-events: none;
@@ -333,7 +333,7 @@ body {
   height: 0;
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
-  border-top: 4px solid rgba(20, 20, 20, 0.95);
+  border-bottom: 4px solid rgba(20, 20, 20, 0.95);
   transition: opacity 150ms ease;
 }
 
@@ -859,29 +859,3 @@ select.records-list__field:focus-visible {
 .records-list__handle:hover {
   color: #333333;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
