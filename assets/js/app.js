@@ -956,7 +956,7 @@ document.addEventListener("DOMContentLoaded", () => {
     titleInput.type = "text";
     titleInput.maxLength = maxLength;
     titleInput.value = record.title;
-    titleInput.placeholder = "Título";
+    titleInput.placeholder = "";
     titleInput.dataset.field = "title";
      titleInput.addEventListener("input", (event) => {
       record.title = event.target.value;
@@ -980,7 +980,7 @@ document.addEventListener("DOMContentLoaded", () => {
     authorInput.type = "text";
     authorInput.maxLength = maxLength;
     authorInput.value = record.author;
-    authorInput.placeholder = "Autor";
+    authorInput.placeholder = "";
     authorInput.dataset.field = "author";
     authorInput.addEventListener("input", (event) => {
       record.author = event.target.value;
@@ -1003,7 +1003,7 @@ document.addEventListener("DOMContentLoaded", () => {
     performerInput.type = "text";
     performerInput.maxLength = maxLength;
     performerInput.value = record.performer || "";
-    performerInput.placeholder = "Intérprete";
+    performerInput.placeholder = "";
     performerInput.dataset.field = "performer";
     performerInput.addEventListener("input", (event) => {
       record.performer = event.target.value;
@@ -1073,9 +1073,7 @@ document.addEventListener("DOMContentLoaded", () => {
     modalitySelect.dataset.field = "modality";
     const modalityPlaceholder = document.createElement("option");
     modalityPlaceholder.value = "";
-    modalityPlaceholder.textContent = "Selecciona…";
-    modalityPlaceholder.disabled = true;
-    modalityPlaceholder.hidden = true;
+    modalityPlaceholder.textContent = "";
     modalitySelect.appendChild(modalityPlaceholder);
     ["Ambientaciones", "Caretas", "Fondos", "Ráfagas", "Sinfónicos", "Variedades"].forEach((optionLabel) => {
       const option = document.createElement("option");
@@ -1101,9 +1099,7 @@ document.addEventListener("DOMContentLoaded", () => {
     musicTypeSelect.dataset.field = "musicType";
     const musicTypePlaceholder = document.createElement("option");
     musicTypePlaceholder.value = "";
-    musicTypePlaceholder.textContent = "Selecciona…";
-    musicTypePlaceholder.disabled = true;
-    musicTypePlaceholder.hidden = true;
+    musicTypePlaceholder.textContent = "";
     musicTypeSelect.appendChild(musicTypePlaceholder);
     ["Librería", "Comercial", "Original"].forEach((optionLabel) => {
       const option = document.createElement("option");
@@ -1129,7 +1125,7 @@ document.addEventListener("DOMContentLoaded", () => {
     libraryCodeInput.type = "text";
     libraryCodeInput.maxLength = maxLength;
     libraryCodeInput.value = record.libraryCode || "";
-    libraryCodeInput.placeholder = "Código de librería";
+    libraryCodeInput.placeholder = "";
     libraryCodeInput.dataset.field = "libraryCode";
     libraryCodeInput.addEventListener("input", (event) => {
       record.libraryCode = event.target.value;
@@ -1145,7 +1141,7 @@ document.addEventListener("DOMContentLoaded", () => {
     libraryNameInput.type = "text";
     libraryNameInput.maxLength = maxLength;
     libraryNameInput.value = record.libraryName || "";
-    libraryNameInput.placeholder = "Nombre de librería";
+    libraryNameInput.placeholder = "";
     libraryNameInput.dataset.field = "libraryName";
     libraryNameInput.addEventListener("input", (event) => {
       record.libraryName = event.target.value;
@@ -2064,4 +2060,5 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
