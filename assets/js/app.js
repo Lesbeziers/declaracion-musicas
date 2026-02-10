@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const recordsViewport = document.querySelector(".records-list__viewport");
   const recordsBody = document.querySelector(".records-list__body");
   const recordsHeader = document.querySelector(".records-list__header");
+  const masterRecordsCheckbox = document.getElementById("masterRecordsCheckbox");
   const headerCells = recordsHeader
     ? Array.from(recordsHeader.querySelectorAll(".records-list__cell"))
     : [];
@@ -928,6 +929,7 @@ document.addEventListener("DOMContentLoaded", () => {
     checkbox.checked = record.checked;
     checkbox.addEventListener("change", (event) => {
       record.checked = event.target.checked;
+      syncMasterCheckboxState();
     });
 
     const handle = document.createElement("span");
@@ -1237,6 +1239,26 @@ document.addEventListener("DOMContentLoaded", () => {
     minusButton.disabled = records.length <= 1;
   };
 
+    const updateMasterCheckboxTooltip = () => {
+    if (!masterRecordsCheckbox) {
+      return;
+    }
+
+    const tooltipText = masterRecordsCheckbox.checked
+      ? "Deseleccionar todas las filas"
+      : "Seleccionar todas las filas";
+    masterRecordsCheckbox.title = tooltipText;
+  };
+
+  const syncMasterCheckboxState = () => {
+    if (!masterRecordsCheckbox) {
+      return;
+    }
+
+    masterRecordsCheckbox.checked = records.length > 0 && records.every((record) => record.checked);
+    updateMasterCheckboxTooltip();
+  };
+
   const updateRecordTimeValue = (cell, value) => {
     if (!cell) {
       return;
@@ -1409,6 +1431,7 @@ document.addEventListener("DOMContentLoaded", () => {
       recordsBody.appendChild(createRecordRow(record));
     });
     updateMinusButtonState();
+    syncMasterCheckboxState();
   };
 
   const addEmptyRecord = () => {
@@ -1495,6 +1518,16 @@ document.addEventListener("DOMContentLoaded", () => {
   updateBackButtonState();
   plusButton.addEventListener("click", addEmptyRecord);
   minusButton.addEventListener("click", removeSelectedRecords);
+
+  if (masterRecordsCheckbox) {
+    masterRecordsCheckbox.addEventListener("change", () => {
+      const shouldSelectAll = !records.every((record) => record.checked);
+      records.forEach((record) => {
+        record.checked = shouldSelectAll;
+      });
+      renderRecords();
+    });
+  }
 
   recordsBody.addEventListener("dragover", (event) => {
     if (!draggedRow) {
@@ -2060,5 +2093,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
