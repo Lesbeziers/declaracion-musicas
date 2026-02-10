@@ -687,6 +687,13 @@ body {
   filter: none;
 }
 
+select.records-list__field:focus,
+select.records-list__field:focus-visible {
+  border: 2px solid #31d0f4;
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 1px #31d0f4;
+}
+
 .records-list__field.is-editing {
   border: 2px solid #31d0f4;
   outline: none;
@@ -794,6 +801,7 @@ body {
 .records-list__handle:hover {
   color: #333333;
 }
+
 
 
 
