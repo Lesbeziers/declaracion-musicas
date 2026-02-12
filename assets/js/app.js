@@ -2001,6 +2001,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    updateProgramTitleRequiredState?.();
+
     renderRecords();
     updateBackButtonState();
   };
@@ -2148,6 +2150,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
