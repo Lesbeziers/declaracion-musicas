@@ -961,18 +961,17 @@ document.addEventListener("DOMContentLoaded", () => {
     titleInput.value = record.title;
     titleInput.placeholder = "";
     titleInput.dataset.field = "title";
-    const updateTitleValidationState = () => {
+     titleInput.addEventListener("input", (event) => {
+      record.title = event.target.value;
       if (shouldApplyValidation(row)) {
         applyValidationUI(row, validateRow(row).fieldErrors);
       }
-    };
-
-    titleInput.addEventListener("input", (event) => {
-      record.title = event.target.value;
-      updateTitleValidationState();
     });
-    titleInput.addEventListener("change", updateTitleValidationState);
-    titleInput.addEventListener("blur", updateTitleValidationState);
+    titleInput.addEventListener("blur", () => {
+      if (shouldApplyValidation(row)) {
+        applyValidationUI(row, validateRow(row).fieldErrors);
+      }
+    });
     titleCell.append(titleInput, createValidationMessage("title"));
     row.appendChild(titleCell);
 
@@ -2097,6 +2096,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
