@@ -31,13 +31,17 @@ document.addEventListener("DOMContentLoaded", () => {
     "libraryCode",
     "libraryName",
   ];
+  let updateProgramTitleRequiredState = null;
 
   if (programInput && episodeInput) {
-    const addValidation = (input) => {
+    let isProgramTitleValidationTouched = false;
+
+    const addValidation = (input, { extraInvalidCheck } = {}) => {
       input.maxLength = maxLength;
       const warning = document.createElement("div");
       warning.className = "layout-bar__warning";
       warning.textContent = "Máximo 100 caracteres";
+      warning.hidden = true;
       warning.hidden = true;
       input.insertAdjacentElement("afterend", warning);
 
@@ -52,10 +56,11 @@ document.addEventListener("DOMContentLoaded", () => {
         warning.style.top = `${inputRect.bottom - groupRect.top + 4}px`;
       };
 
-      const updateState = () => {
-        const isInvalid = input.value.length > maxLength;
+     const updateState = () => {
+        const isLengthInvalid = input.value.length > maxLength;
+        const isInvalid = isLengthInvalid || Boolean(extraInvalidCheck?.());
         input.classList.toggle("layout-bar__input--invalid", isInvalid);
-        warning.hidden = !isInvalid;
+        warning.hidden = !isLengthInvalid;
         positionWarning();
       };
 
@@ -64,8 +69,46 @@ document.addEventListener("DOMContentLoaded", () => {
       window.addEventListener("resize", positionWarning);
     };
 
-    addValidation(programInput);
+    const programTitleRequiredMessage = document.createElement("div");
+    programTitleRequiredMessage.className = "records-list__validation-message";
+    programTitleRequiredMessage.textContent = "OBLIGATORIO";
+    programInput.insertAdjacentElement("afterend", programTitleRequiredMessage);
+
+    const positionProgramTitleRequiredMessage = () => {
+      const group = programInput.parentElement;
+      if (!group) {
+        return;
+      }
+      const inputRect = programInput.getBoundingClientRect();
+      const groupRect = group.getBoundingClientRect();
+      programTitleRequiredMessage.style.left = `${inputRect.left - groupRect.left}px`;
+    };
+
+    updateProgramTitleRequiredState = ({ markTouched = false } = {}) => {
+      if (markTouched) {
+        isProgramTitleValidationTouched = true;
+      }
+      const isEmpty = !programInput.value.trim();
+      const shouldShowError = isProgramTitleValidationTouched && isEmpty;
+      programTitleRequiredMessage.textContent = shouldShowError ? "OBLIGATORIO" : "";
+      programTitleRequiredMessage.classList.toggle("is-visible", shouldShowError);
+      positionProgramTitleRequiredMessage();
+      return !isEmpty;
+    };
+
+    addValidation(programInput, {
+      extraInvalidCheck: () => isProgramTitleValidationTouched && !programInput.value.trim(),
+    });
     addValidation(episodeInput);
+
+    updateProgramTitleRequiredState();
+    programInput.addEventListener("input", () => {
+      updateProgramTitleRequiredState();
+    });
+    programInput.addEventListener("blur", () => {
+      updateProgramTitleRequiredState({ markTouched: true });
+    });
+    window.addEventListener("resize", positionProgramTitleRequiredMessage);
 
     programInput.addEventListener("keydown", (event) => {
       if (event.key === "Tab" && event.shiftKey) {
@@ -2083,11 +2126,15 @@ document.addEventListener("DOMContentLoaded", () => {
   if (generateButton) {
     generateButton.addEventListener("click", () => {
       validationArmed = true;
+      const isProgramTitleValid =
+        typeof updateProgramTitleRequiredState === "function"
+          ? updateProgramTitleRequiredState({ markTouched: true })
+          : true;
       recordsBody.querySelectorAll(".records-list__row").forEach((row) => {
         markRowValidationTouched(row);
       });
       const { hasErrors } = validateAllRows({ applyUI: true });
-      if (hasErrors) {
+      if (hasErrors || !isProgramTitleValid) {
         return;
       }
       setTimeout(() => {
@@ -2096,6 +2143,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
