@@ -90,8 +90,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       const isEmpty = !programInput.value.trim();
       const shouldShowError = isProgramTitleValidationTouched && isEmpty;
+      const isLengthInvalid = programInput.value.length > maxLength;
       programTitleRequiredMessage.textContent = shouldShowError ? "OBLIGATORIO" : "";
       programTitleRequiredMessage.classList.toggle("is-visible", shouldShowError);
+      programInput.classList.toggle(
+        "layout-bar__input--invalid",
+        shouldShowError || isLengthInvalid
+      );
       positionProgramTitleRequiredMessage();
       return !isEmpty;
     };
@@ -2143,6 +2148,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
