@@ -483,6 +483,18 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const buildExportFilename = () => {
+    const normalizedProgramTitle = (programInput?.value || "")
+      .trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\w\s-]/g, "")
+      .replace(/\s+/g, "_")
+      .replace(/_+/g, "_");
+
+    if (normalizedProgramTitle) {
+      return `Cue-Sheet_${normalizedProgramTitle}.xlsx`;
+    }
+
     const now = new Date();
     const pad = (value) => String(value).padStart(2, "0");
     const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
@@ -2150,6 +2162,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
