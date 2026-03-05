@@ -2070,7 +2070,7 @@ const importedProgramTitle = normalizeCellValue(sheet.cell("F4").value()).trim()
     }
 
     try {
-      const response = await fetch("assets/excel/plantilla_cue_sheet_m+_v3_NUBE.xlsm");
+      const response = await fetch("assets/excel/plantilla_cue_sheet_v3_NUBE.xlsm");
       if (!response.ok) {
         throw new Error("No se pudo cargar la plantilla de Excel.");
       }
@@ -2170,6 +2170,7 @@ const importedProgramTitle = normalizeCellValue(sheet.cell("F4").value()).trim()
     });
   }
 });
+
 
 
 
