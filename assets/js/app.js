@@ -2095,22 +2095,7 @@ const importedProgramTitle = normalizeCellValue(sheet.cell("F4").value()).trim()
       const startRow = 10;
       const startColumn = "B";
       const endColumn = "K";
-      const templateStyleRange = sheet.range(`${startColumn}${startRow}:${endColumn}${startRow}`);
-      const templateRowHeight = sheet.row(startRow).height();
-      const usedRange = sheet.usedRange();
-      const lastUsedRow = usedRange ? usedRange.endCell().rowNumber() : startRow;
-      const lastDataRow = Math.max(startRow, lastUsedRow);
-      const requiredLastRow = Math.max(startRow, startRow + records.length - 1);
-      const totalRows = Math.max(lastDataRow, requiredLastRow);
-
-      for (let rowIndex = lastDataRow + 1; rowIndex <= totalRows; rowIndex += 1) {
-        templateStyleRange.copyTo(
-          sheet.range(`${startColumn}${rowIndex}:${endColumn}${rowIndex}`)
-        );
-        if (templateRowHeight) {
-          sheet.row(rowIndex).height(templateRowHeight);
-        }
-      }
+      const totalRows = startRow + records.length - 1;
 
       const rowsPayload = Array.from({ length: totalRows - startRow + 1 }, () =>
         new Array(10).fill("")
@@ -2170,6 +2155,7 @@ const importedProgramTitle = normalizeCellValue(sheet.cell("F4").value()).trim()
     });
   }
 });
+
 
 
 
