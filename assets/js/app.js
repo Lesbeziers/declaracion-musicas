@@ -2081,7 +2081,7 @@ const importedProgramTitle = normalizeCellValue(sheet.cell("F4").value()).trim()
         throw new Error("No se encontró la hoja MODULOSGAE en la plantilla.");
       }
 
-      sheet.cell("F4").value(programInput?.value || "");
+      sheet.cell("C4").value(programInput?.value || "");
       const rawEpisodeValue = episodeInput?.value || "";
       const trimmedEpisodeValue = rawEpisodeValue.trim();
       let exportEpisodeValue = trimmedEpisodeValue;
@@ -2155,6 +2155,7 @@ const importedProgramTitle = normalizeCellValue(sheet.cell("F4").value()).trim()
     });
   }
 });
+
 
 
 
