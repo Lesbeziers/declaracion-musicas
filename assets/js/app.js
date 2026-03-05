@@ -492,14 +492,14 @@ document.addEventListener("DOMContentLoaded", () => {
       .replace(/_+/g, "_");
 
     if (normalizedProgramTitle) {
-      return `Cue-Sheet_${normalizedProgramTitle}.xlsx`;
+      return `Cue-Sheet_${normalizedProgramTitle}.xlsm`;
     }
 
     const now = new Date();
     const pad = (value) => String(value).padStart(2, "0");
     const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
     const time = `${pad(now.getHours())}${pad(now.getMinutes())}`;
-    return `Cue-Sheet_${date}_${time}.xlsx`;
+      return `Cue-Sheet_${date}_${time}.xlsm`;
   };
 
   const resolveDurationForExport = (tcIn, tcOut) => {
@@ -1138,7 +1138,7 @@ document.addEventListener("DOMContentLoaded", () => {
     modalityPlaceholder.value = "";
     modalityPlaceholder.textContent = "";
     modalitySelect.appendChild(modalityPlaceholder);
-    ["Ambientaciones", "Caretas", "Fondos", "Ráfagas", "Sinfónicos", "Variedades"].forEach((optionLabel) => {
+    ["Ambientaciones", "Caretas", "Fondos", "Sinfónicos", "Variedades"].forEach((optionLabel) => {
       const option = document.createElement("option");
       option.value = optionLabel;
       option.textContent = optionLabel;
@@ -1887,7 +1887,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const importInput = document.createElement("input");
   importInput.type = "file";
-  importInput.accept = ".xlsx";
+  importInput.accept = ".xlsx,.xlsm";
   importInput.hidden = true;
   document.body.appendChild(importInput);
 
@@ -1935,12 +1935,20 @@ document.addEventListener("DOMContentLoaded", () => {
     return window.XlsxPopulate.fromDataAsync(arrayBuffer);
   };
 
+const normalizeSelectValue = (value, validOptions) => {
+  const trimmed = value.trim();
+  const match = validOptions.find(
+    (option) => option.toLowerCase() === trimmed.toLowerCase()
+  );
+  return match ?? "";
+};
+  
   const buildRecordsFromSheet = (sheet) => {
-    const startRow = 8;
+    const startRow = 10;
     const usedRange = sheet.usedRange();
     const lastUsedRow = usedRange ? usedRange.endCell().rowNumber() : startRow;
     const lastRow = Math.max(startRow, lastUsedRow);
-    const rows = sheet.range(`A${startRow}:J${lastRow}`).value();
+    const rows = sheet.range(`B${startRow}:K${lastRow}`).value();
     const importedRecords = [];
 
     rows.forEach((row) => {
@@ -1949,13 +1957,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!hasValues) {
         return;
       }
-      const [
+const [
         title,
         author,
         performer,
+        duration,
         tcIn,
         tcOut,
-        duration,
         modality,
         musicType,
         libraryCode,
@@ -1972,8 +1980,8 @@ document.addEventListener("DOMContentLoaded", () => {
         tcIn: tcIn.trim() || TIME_PLACEHOLDER,
         tcOut: tcOut.trim() || TIME_PLACEHOLDER,
         duration: duration.trim(),
-        modality: modality.trim(),
-        musicType: musicType.trim(),
+        modality: normalizeSelectValue(modality, ["Ambientaciones", "Caretas", "Fondos", "Sinfónicos", "Variedades"]),
+        musicType: normalizeSelectValue(musicType, ["Librería", "Comercial", "Original"]),
         libraryCode: libraryCode.trim(),
         libraryName: libraryName.trim(),
       });
@@ -1988,8 +1996,8 @@ document.addEventListener("DOMContentLoaded", () => {
       throw new Error("No se encontró la hoja MODULOSGAE en el Excel importado.");
     }
 
-    const importedProgramTitle = normalizeCellValue(sheet.cell("B5").value()).trim();
-    const importedEpisode = normalizeCellValue(sheet.cell("J5").value()).trim();
+const importedProgramTitle = normalizeCellValue(sheet.cell("F4").value()).trim();
+    const importedEpisode = normalizeCellValue(sheet.cell("H4").value()).trim();
     const importedRecords = buildRecordsFromSheet(sheet);
 
     if (mode === "replace") {
@@ -2062,7 +2070,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      const response = await fetch("assets/excel/Cue-Sheet_Template.xlsx");
+      const response = await fetch("assets/excel/plantilla_cue_sheet_m+_v3_NUBE.xlsm");
       if (!response.ok) {
         throw new Error("No se pudo cargar la plantilla de Excel.");
       }
@@ -2073,7 +2081,7 @@ document.addEventListener("DOMContentLoaded", () => {
         throw new Error("No se encontró la hoja MODULOSGAE en la plantilla.");
       }
 
-      sheet.range("B5:H5").value(programInput?.value || "");
+      sheet.cell("F4").value(programInput?.value || "");
       const rawEpisodeValue = episodeInput?.value || "";
       const trimmedEpisodeValue = rawEpisodeValue.trim();
       let exportEpisodeValue = trimmedEpisodeValue;
@@ -2082,11 +2090,11 @@ document.addEventListener("DOMContentLoaded", () => {
           ? trimmedEpisodeValue
           : Number(trimmedEpisodeValue);
       }
-      sheet.cell("J5").value(exportEpisodeValue);
+      sheet.cell("H4").value(exportEpisodeValue);
 
-      const startRow = 8;
-      const startColumn = "A";
-      const endColumn = "J";
+      const startRow = 10;
+      const startColumn = "B";
+      const endColumn = "K";
       const templateStyleRange = sheet.range(`${startColumn}${startRow}:${endColumn}${startRow}`);
       const templateRowHeight = sheet.row(startRow).height();
       const usedRange = sheet.usedRange();
@@ -2109,13 +2117,13 @@ document.addEventListener("DOMContentLoaded", () => {
       );
 
       records.forEach((record, index) => {
-        const rowValues = [
+      const rowValues = [
           record.title || "",
           record.author || "",
           record.performer || "",
+          resolveDurationForExport(record.tcIn, record.tcOut),
           record.tcIn || "",
           record.tcOut || "",
-          resolveDurationForExport(record.tcIn, record.tcOut),
           record.modality || "",
           record.musicType || "",
           record.libraryCode || "",
@@ -2162,6 +2170,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 
 
