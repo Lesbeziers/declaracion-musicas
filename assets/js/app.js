@@ -1138,7 +1138,7 @@ document.addEventListener("DOMContentLoaded", () => {
     modalityPlaceholder.value = "";
     modalityPlaceholder.textContent = "";
     modalitySelect.appendChild(modalityPlaceholder);
-    ["Ambientaciones", "Caretas", "Fondos", "Sinfónicos", "Variedades"].forEach((optionLabel) => {
+    ["AMBIENTACIONES", "CARETAS", "FONDOS", "SINFÓNICOS", "VARIEDADES"].forEach((optionLabel) => {
       const option = document.createElement("option");
       option.value = optionLabel;
       option.textContent = optionLabel;
@@ -1980,7 +1980,7 @@ const [
         tcIn: tcIn.trim() || TIME_PLACEHOLDER,
         tcOut: tcOut.trim() || TIME_PLACEHOLDER,
         duration: duration.trim(),
-        modality: normalizeSelectValue(modality, ["Ambientaciones", "Caretas", "Fondos", "Sinfónicos", "Variedades"]),
+        modality: normalizeSelectValue(modality, ["AMBIENTACIONES", "CARETAS", "FONDOS", "SINFÓNICOS", "VARIEDADES"]),
         musicType: normalizeSelectValue(musicType, ["Librería", "Comercial", "Original"]),
         libraryCode: libraryCode.trim(),
         libraryName: libraryName.trim(),
@@ -2170,6 +2170,7 @@ const importedProgramTitle = normalizeCellValue(sheet.cell("F4").value()).trim()
     });
   }
 });
+
 
 
 
