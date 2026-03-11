@@ -1,125 +1,15 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Declaración de Músicas</title>
+    <title>Declaración de Músicas SGAE</title>
     <link rel="stylesheet" href="assets/css/styles.css" />
   </head>
   <body>
-    <div class="layout-frame">
-      <header class="layout-header">
-        <div class="layout-header__left">
-          <img src="assets/img/logo_SGAE.svg" alt="SGAE" />
-        </div>
-        <div class="layout-header__center">
-          <img src="assets/img/cabecera_DecMusicas.svg" alt="Declaración de Músicas" />
-        </div>
-        <div class="layout-header__right">
-          <img src="assets/img/logoM+.svg" alt="Movistar Plus" />
-        </div>
-      </header>
-      <div class="layout-bar layout-bar--dark">
-        <div class="layout-bar__content">
-          <div class="layout-bar__group">
-            <label class="layout-bar__label" for="programTitleInput">TÍTULO DE PROGRAMA</label>
-            <input
-              class="layout-bar__input layout-bar__input--program"
-              id="programTitleInput"
-              type="text"
-              maxlength="100"
-            />
-          </div>
-          <div class="layout-bar__group layout-bar__group--right">
-            <label class="layout-bar__label" for="episodeInput">CAPÍTULO</label>
-            <input
-              class="layout-bar__input layout-bar__input--episode"
-              id="episodeInput"
-              type="text"
-              maxlength="100"
-            />
-          </div>
-        </div>
-      </div>
-      <div class="layout-bar layout-bar--mid">
-        <div class="layout-bar__content layout-bar__content--mid">
-          <div class="layout-bar__controls">
-            <span class="layout-bar__title">REGISTROS</span>
-            <div class="layout-bar__icons">
-              <button
-                class="layout-bar__icon layout-bar__icon--plus"
-                type="button"
-                aria-label="Añadir fila"
-                data-tooltip="Añadir fila"
-              ></button>
-              <button
-                class="layout-bar__icon layout-bar__icon--minus"
-                type="button"
-                aria-label="Eliminar fila"
-                data-tooltip="Eliminar fila"
-              ></button>
-              <button
-                class="layout-bar__icon layout-bar__icon--back"
-                type="button"
-                aria-label="Anular borrado de filas"
-                data-tooltip="Anular borrado de filas"
-              ></button>
-            </div>
-          </div>
-          <div class="layout-bar__actions" aria-label="Acciones de cue sheet">
-            <button class="layout-bar__button" type="button">IMPORTAR CUE SHEET</button>
-            <button class="layout-bar__button layout-bar__button--generate" type="button">
-              GENERAR CUE SHEET
-            </button>
-          </div>
-        </div>
-      </div>
-      <main class="layout-content">
-        <section class="records-list">
-          <div class="records-list__viewport">
-            <div class="records-list__header records-list__grid">
-              <div class="records-list__cell records-list__cell--controls">
-                <div class="records-list__master-checkbox" data-tooltip="Seleccionar todas las filas">
-                  <input
-                    id="masterRecordsCheckbox"
-                    class="records-list__checkbox"
-                    type="checkbox"
-                    aria-label="Seleccionar o deseleccionar todas las filas"
-                    tabindex="-1"
-                  />
-                </div>
-              </div>
-              <div class="records-list__cell">TÍTULO</div>
-              <div class="records-list__cell">AUTOR</div>
-              <div class="records-list__cell">INTÉRPRETE</div>
-              <div class="records-list__cell">TC IN</div>
-              <div class="records-list__cell">TC OUT</div>
-              <div class="records-list__cell">DURACIÓN</div>
-              <div class="records-list__cell">MODALIDAD</div>
-              <div class="records-list__cell">TIPO DE MÚSICA</div>
-              <div class="records-list__cell">CÓDIGO DE LIBRERÍA</div>
-              <div class="records-list__cell">NOMBRE DE LIBRERÍA</div>
-            </div>
-            <div class="records-list__body" aria-live="polite"></div>
-          </div>
-        </section>
-      </main>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx-populate/browser/xlsx-populate.min.js"></script>
-    <script src="assets/js/app.js"></script>
-    <div id="time-overlay-root" aria-hidden="true"></div>
+    <main id="app"></main>
+    <script src="assets/js/xlsx.full.min.js" defer></script>
+    <script src="assets/js/exceljs.min.js" defer></script>
+    <script src="assets/js/app.js" defer></script>
   </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
