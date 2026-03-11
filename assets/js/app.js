@@ -1,2176 +1,2986 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const programInput = document.getElementById("programTitleInput");
-  const episodeInput = document.getElementById("episodeInput");
-  const plusButton = document.querySelector(".layout-bar__icon--plus");
-  const minusButton = document.querySelector(".layout-bar__icon--minus");
-  const backButton = document.querySelector(".layout-bar__icon--back");
-  const generateButton = document.querySelector(".layout-bar__button--generate");
-  const importButton = Array.from(document.querySelectorAll(".layout-bar__button")).find(
-    (button) => button.textContent?.trim().toUpperCase() === "IMPORTAR CUE SHEET"
-  );
-  const recordsViewport = document.querySelector(".records-list__viewport");
-  const recordsBody = document.querySelector(".records-list__body");
-  const recordsHeader = document.querySelector(".records-list__header");
-  const masterRecordsCheckbox = document.getElementById("masterRecordsCheckbox");
-  const masterRecordsCheckboxTooltip = document.querySelector(".records-list__master-checkbox");
-  const headerCells = recordsHeader
-    ? Array.from(recordsHeader.querySelectorAll(".records-list__cell"))
-    : [];
-  const maxLength = 100;
-  const textMeasureCanvas = document.createElement("canvas");
-  const textMeasureContext = textMeasureCanvas.getContext("2d");
-  const TIME_PLACEHOLDER = "00:00:00";
-  const ROW_TAB_SEQUENCE = [
-    "title",
-    "author",
-    "performer",
-    "tcIn",
-    "tcOut",
-    "modality",
-    "musicType",
-    "libraryCode",
-    "libraryName",
-  ];
-  let updateProgramTitleRequiredState = null;
+// ─────────────────────────────────────────────────────────────
+//  DECLARACIÓN DE MÚSICAS — app.js  (Paso 1: base Panel limpia)
+// ─────────────────────────────────────────────────────────────
 
-  if (programInput && episodeInput) {
-    let isProgramTitleValidationTouched = false;
+// ── Columnas de Declaración de Músicas ───────────────────────
+const columns = [
+  { key: "titulo",          label: "TÍTULO",              type: "text" },
+  { key: "autor",           label: "AUTOR",               type: "text" },
+  { key: "interprete",      label: "INTÉRPRETE",          type: "text" },
+  { key: "tcIn",            label: "TC IN",               type: "text" },
+  { key: "tcOut",           label: "TC OUT",              type: "text" },
+  { key: "duracion",        label: "DURACIÓN",            type: "text" },
+  {
+    key: "modalidad",
+    label: "MODALIDAD",
+    type: "text",
+    cellType: "select",
+    options: ["", "AMBIENTACIONES", "CARETAS", "FONDOS", "SINFÓNICOS", "VARIEDADES"],
+  },
+  {
+    key: "tipoMusica",
+    label: "TIPO DE MÚSICA",
+    type: "text",
+    cellType: "select",
+    options: ["", "LIBRERÍA", "COMERCIAL", "ORIGINAL"],
+  },
+  { key: "codigoLibreria",  label: "CÓDIGO DE LIBRERÍA",  type: "text" },
+  { key: "nombreLibreria",  label: "NOMBRE DE LIBRERÍA",  type: "text" },
+];
 
-    const addValidation = (input, { extraInvalidCheck } = {}) => {
-      input.maxLength = maxLength;
-      const warning = document.createElement("div");
-      warning.className = "layout-bar__warning";
-      warning.textContent = "Máximo 100 caracteres";
-      warning.hidden = true;
-      warning.hidden = true;
-      input.insertAdjacentElement("afterend", warning);
+const headers = columns.map((c) => c.label);
+const DATE_COLUMNS = new Set([]); // sin columnas de fecha en este proyecto
+const TOTAL_ROWS = 150;
 
-      const positionWarning = () => {
-        const group = input.parentElement;
-        if (!group) {
-          return;
-        }
-        const inputRect = input.getBoundingClientRect();
-        const groupRect = group.getBoundingClientRect();
-        warning.style.left = `${inputRect.left - groupRect.left}px`;
-        warning.style.top = `${inputRect.bottom - groupRect.top + 4}px`;
-      };
+// ── Constantes de comportamiento ──────────────────────────────
+const IS_VIEWER_MODE = window.PANEL_FEATURES?.viewerMode === true;
+const DRAG_THRESHOLD_PX = 6;
+const MAX_AUTO_INSERT = 50;
+const TOAST_DURATION_MS = 3200;
+const HISTORY_LIMIT = 200;
+const HISTORY_GROUP_WINDOW_MS = 650;
+const GENRE_TYPE_BUFFER_TIMEOUT_MS = 700;
 
-     const updateState = () => {
-        const isLengthInvalid = input.value.length > maxLength;
-        const isInvalid = isLengthInvalid || Boolean(extraInvalidCheck?.());
-        input.classList.toggle("layout-bar__input--invalid", isInvalid);
-        warning.hidden = !isLengthInvalid;
-        positionWarning();
-      };
+// ── Datos ─────────────────────────────────────────────────────
+let rowId = 0;
 
-      updateState();
-      input.addEventListener("input", updateState);
-      window.addEventListener("resize", positionWarning);
-    };
+function newRow() {
+  rowId += 1;
+  return {
+    rowKey: `row-${Date.now()}-${rowId}`,
+    _autoPlaceholder: false,
+    titulo: "",
+    autor: "",
+    interprete: "",
+    tcIn: "",
+    tcOut: "",
+    modalidad: "",
+    tipoMusica: "",
+    codigoLibreria: "",
+    nombreLibreria: "",
+  };
+}
 
-    const programTitleRequiredMessage = document.createElement("div");
-    programTitleRequiredMessage.className = "records-list__validation-message";
-    programTitleRequiredMessage.textContent = "OBLIGATORIO";
-    programInput.insertAdjacentElement("afterend", programTitleRequiredMessage);
+// Calcula duración como HH:MM:SS a partir de dos timecodes HH:MM:SS
+// ── Timecode (TC IN / TC OUT) ─────────────────────────────────
 
-    const positionProgramTitleRequiredMessage = () => {
-      const group = programInput.parentElement;
-      if (!group) {
-        return;
-      }
-      const inputRect = programInput.getBoundingClientRect();
-      const groupRect = group.getBoundingClientRect();
-      programTitleRequiredMessage.style.left = `${inputRect.left - groupRect.left}px`;
-    };
+// Acepta cualquier separador (:, -, /, \, |, espacio) o ninguno.
+// Extrae todos los dígitos y usa los primeros 6 como HH MM SS.
+// Devuelve { value: "HH:MM:SS", valid: true } o { value: rawTrimmed, valid: false }.
+function normalizeTCInput(raw) {
+  const text = `${raw ?? ""}`.trim();
+  if (!text) return { value: "", valid: true };
+  const digits = text.replace(/\D/g, "");
+  if (!digits.length) return { value: text, valid: false };
 
-    updateProgramTitleRequiredState = ({ markTouched = false } = {}) => {
-      if (markTouched) {
-        isProgramTitleValidationTouched = true;
-      }
-      const isEmpty = !programInput.value.trim();
-      const shouldShowError = isProgramTitleValidationTouched && isEmpty;
-      const isLengthInvalid = programInput.value.length > maxLength;
-      programTitleRequiredMessage.textContent = shouldShowError ? "OBLIGATORIO" : "";
-      programTitleRequiredMessage.classList.toggle("is-visible", shouldShowError);
-      programInput.classList.toggle(
-        "layout-bar__input--invalid",
-        shouldShowError || isLengthInvalid
-      );
-      positionProgramTitleRequiredMessage();
-      return !isEmpty;
-    };
+  let hh = 0, mm = 0, ss = 0;
 
-    addValidation(programInput, {
-      extraInvalidCheck: () => isProgramTitleValidationTouched && !programInput.value.trim(),
-    });
-    addValidation(episodeInput);
-
-    updateProgramTitleRequiredState();
-    programInput.addEventListener("input", () => {
-      updateProgramTitleRequiredState();
-    });
-    programInput.addEventListener("blur", () => {
-      updateProgramTitleRequiredState({ markTouched: true });
-    });
-    window.addEventListener("resize", positionProgramTitleRequiredMessage);
-
-    programInput.addEventListener("keydown", (event) => {
-      if (event.key === "Tab" && event.shiftKey) {
-        event.preventDefault();
-        episodeInput.focus();
-      }
-    });
-
-    episodeInput.addEventListener("keydown", (event) => {
-      if (event.key === "Tab" && !event.shiftKey) {
-        event.preventDefault();
-        programInput.focus();
-      }
-    });
+  switch (digits.length) {
+    case 1: ss = parseInt(digits, 10); break;
+    case 2: ss = parseInt(digits, 10); break;
+    case 3: mm = parseInt(digits[0], 10);          ss = parseInt(digits.slice(1), 10); break;
+    case 4: mm = parseInt(digits.slice(0, 2), 10); ss = parseInt(digits.slice(2), 10); break;
+    case 5: hh = parseInt(digits[0], 10);          mm = parseInt(digits.slice(1, 3), 10); ss = parseInt(digits.slice(3), 10); break;
+    default: hh = parseInt(digits.slice(0, 2), 10); mm = parseInt(digits.slice(2, 4), 10); ss = parseInt(digits.slice(4, 6), 10); break;
   }
 
-  if (!plusButton || !minusButton || !recordsViewport || !recordsBody) {
+  if (hh > 23 || mm > 59 || ss > 59) return { value: text, valid: false };
+  return {
+    value: `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`,
+    valid: true,
+  };
+}
+
+// Comprueba si un valor ya almacenado es HH:MM:SS válido (o vacío).
+function isValidTCFormat(value) {
+  if (!value) return true;
+  if (!/^\d{2}:\d{2}:\d{2}$/.test(value)) return false;
+  const hh = parseInt(value.slice(0, 2), 10);
+  const mm = parseInt(value.slice(3, 5), 10);
+  const ss = parseInt(value.slice(6, 8), 10);
+  return hh <= 23 && mm <= 59 && ss <= 59;
+}
+
+function calcDuracion(tcIn, tcOut) {
+  const parse = (tc) => {
+    if (!tc) return null;
+    const parts = `${tc}`.split(":").map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return null;
+    const [h, m, s] = parts;
+    if (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) return null;
+    return h * 3600 + m * 60 + s;
+  };
+  const inSecs = parse(tcIn);
+  const outSecs = parse(tcOut);
+  if (inSecs === null || outSecs === null || outSecs <= inSecs) return "";
+  const diff = outSecs - inSecs;
+  const h = Math.floor(diff / 3600);
+  const m = Math.floor((diff % 3600) / 60);
+  const s = diff % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+// Bloque único que contiene las 150 filas fijas
+let blocks = [
+  {
+    id: "block-0",
+    rows: Array.from({ length: TOTAL_ROWS }, () => newRow()),
+  },
+];
+
+// ── Estado UI ─────────────────────────────────────────────────
+let contextMenu = { open: false, x: 0, y: 0, blockIndex: -1, rowIndex: -1 };
+let menuElement = null;
+let selectedCell = null;
+let sortState = { key: null, dir: "asc" };
+let selectedCellState = null;
+let editingCell = null;
+let titleOverlayLayer = null;
+let genreMenuElement = null;
+let fillHandleElement = null;
+let fillDragState = null;
+let copyAntsElement = null;
+let copyRange = null;
+let copyRangeBlockIndex = null;
+let dragSelectState = {
+  pointerDown: false,
+  isDragSelect: false,
+  anchorCell: null,
+  anchorCol: null,
+  anchorBlockIndex: null,
+  anchorRow: null,
+  downX: 0,
+  downY: 0,
+};
+let dragSelection = null;
+let shiftSelectAnchor = null;
+let suppressNextGridClick = false;
+let genreTypeBuffer = "";
+let genreTypeBufferTimestamp = 0;
+let toastElement = null;
+let toastHideTimer = null;
+let deleteConfirmElement = null;
+let deleteConfirmState = null;
+let undoStack = [];
+let redoStack = [];
+let pendingHistoryAction = null;
+let pendingHistoryCommitTimer = null;
+let activeHistoryAction = null;
+let isApplyingHistory = false;
+
+// ── Helpers de datos ──────────────────────────────────────────
+
+function cloneRowData(row) {
+  return { ...row };
+}
+
+function cloneRows(rows) {
+  return Array.isArray(rows) ? rows.map((r) => cloneRowData(r)) : [];
+}
+
+// Devuelve todas las filas del bloque, aplicando sortState si está activo
+function getOrderedRowsForMonth(block) {
+  const indexed = block.rows.map((row, sourceIndex) => ({
+    row,
+    sourceIndex,
+    rowRange: null,
+    isVisibleInCurrentMonth: true,
+    isInheritedInMonth: false,
+  }));
+
+  if (!sortState.key) return indexed;
+
+  const key = sortState.key;
+  const dir = sortState.dir;
+
+  const nonEmpty = indexed.filter((item) => {
+    const v = getCellRawValue(item.row, key);
+    return v !== null && v !== undefined && `${v}`.trim() !== "";
+  });
+  const empty = indexed.filter((item) => {
+    const v = getCellRawValue(item.row, key);
+    return v === null || v === undefined || `${v}`.trim() === "";
+  });
+
+  nonEmpty.sort((a, b) => {
+    const va = `${getCellRawValue(a.row, key)}`;
+    const vb = `${getCellRawValue(b.row, key)}`;
+    const cmp = va.localeCompare(vb, "es-ES", { numeric: true, sensitivity: "base" });
+    return dir === "asc" ? cmp : -cmp;
+  });
+
+  return [...nonEmpty, ...empty];
+}
+
+function isPlaceholderRow(row) {
+  if (!row) return false;
+  return (
+    !`${row.titulo ?? ""}`.trim() &&
+    !`${row.autor ?? ""}`.trim() &&
+    !`${row.interprete ?? ""}`.trim() &&
+    !`${row.tcIn ?? ""}`.trim() &&
+    !`${row.tcOut ?? ""}`.trim() &&
+    !`${row.modalidad ?? ""}`.trim() &&
+    !`${row.tipoMusica ?? ""}`.trim() &&
+    !`${row.codigoLibreria ?? ""}`.trim() &&
+    !`${row.nombreLibreria ?? ""}`.trim()
+  );
+}
+
+// ── Historia ──────────────────────────────────────────────────
+
+function getPrimaryCellForHistory(options = {}) {
+  if (options.primaryCell) return options.primaryCell;
+  const meta = selectedCell ? getCellMeta(selectedCell) : null;
+  if (!meta) return null;
+  const row = blocks[meta.blockIndex]?.rows?.[meta.rowIndex];
+  return { ...meta, rowKey: row?.rowKey || null };
+}
+
+function createHistoryAction(type, options = {}) {
+  return {
+    type,
+    patches: [],
+    timestamp: Date.now(),
+    primaryCell: getPrimaryCellForHistory(options),
+    groupKey: options.groupKey || null,
+  };
+}
+
+function clearPendingHistoryTimer() {
+  if (pendingHistoryCommitTimer) {
+    window.clearTimeout(pendingHistoryCommitTimer);
+    pendingHistoryCommitTimer = null;
+  }
+}
+
+function finalizeHistoryAction(action) {
+  if (!action || !action.patches.length) return;
+  undoStack.push(action);
+  if (undoStack.length > HISTORY_LIMIT) {
+    undoStack = undoStack.slice(undoStack.length - HISTORY_LIMIT);
+  }
+  redoStack = [];
+}
+
+function commitPendingHistoryAction() {
+  if (!pendingHistoryAction || isApplyingHistory) return;
+  finalizeHistoryAction(pendingHistoryAction);
+  pendingHistoryAction = null;
+  clearPendingHistoryTimer();
+}
+
+function schedulePendingHistoryCommit() {
+  clearPendingHistoryTimer();
+  pendingHistoryCommitTimer = window.setTimeout(() => {
+    commitPendingHistoryAction();
+  }, HISTORY_GROUP_WINDOW_MS);
+}
+
+function ensureActiveHistoryAction(type, options = {}) {
+  if (isApplyingHistory) return null;
+  const forceIsolated = !!options.forceIsolated;
+  const groupKey = options.groupKey || null;
+
+  if (forceIsolated) {
+    commitPendingHistoryAction();
+    const isolated = createHistoryAction(type, options);
+    activeHistoryAction = isolated;
+    return isolated;
+  }
+
+  if (!pendingHistoryAction) {
+    pendingHistoryAction = createHistoryAction(type, options);
+    schedulePendingHistoryCommit();
+    return pendingHistoryAction;
+  }
+
+  const sameType = pendingHistoryAction.type === type;
+  const sameGroup = pendingHistoryAction.groupKey && groupKey && pendingHistoryAction.groupKey === groupKey;
+  if (sameType && sameGroup) {
+    schedulePendingHistoryCommit();
+    return pendingHistoryAction;
+  }
+
+  commitPendingHistoryAction();
+  pendingHistoryAction = createHistoryAction(type, options);
+  schedulePendingHistoryCommit();
+  return pendingHistoryAction;
+}
+
+function closeActiveHistoryAction() {
+  if (!activeHistoryAction || isApplyingHistory) {
+    activeHistoryAction = null;
+    return;
+  }
+  finalizeHistoryAction(activeHistoryAction);
+  activeHistoryAction = null;
+}
+
+function withHistoryAction(type, options, callback) {
+  const action = ensureActiveHistoryAction(type, { ...options, forceIsolated: true });
+  if (!action) return callback?.();
+  try {
+    return callback?.();
+  } finally {
+    closeActiveHistoryAction();
+  }
+}
+
+function addPatchToCurrentAction(patch, options = {}) {
+  if (isApplyingHistory || !patch) return;
+  const current = activeHistoryAction || ensureActiveHistoryAction(options.type || "edit", options);
+  if (!current) return;
+  current.patches.push(patch);
+}
+
+function applyPatch(patch, direction) {
+  if (!patch) return;
+
+  if (patch.type === "setCell") {
+    const value = direction === "forward" ? patch.after : patch.before;
+    const block = blocks[patch.blockIndex];
+    const row = block?.rows?.[patch.rowIndex];
+    if (!row) return;
+    const normalized = parseCellValue(patch.columnKey, value);
+    const textFields = ["titulo", "autor", "interprete", "tcIn", "tcOut", "modalidad", "tipoMusica", "codigoLibreria", "nombreLibreria"];
+    if (textFields.includes(patch.columnKey)) {
+      row[patch.columnKey] = normalized;
+    }
     return;
   }
 
-  let nextRecordId = 1;
-  const records = [];
-  let lastDeleteSnapshot = null;
-  const dragPlaceholder = document.createElement("div");
-  dragPlaceholder.className = "records-list__row records-list__grid drag-placeholder";
-  let draggedRow = null;
-  let dropTargetRow = null;
-  let activeEditorTarget = null;
-  let editorPreviousValue = "";
-  let shouldSkipFocusOpen = false;
-  let overlayOverflowAttempted = false;
-  let validationArmed = false;
+  if (patch.type === "insertRows") {
+    const block = blocks[patch.blockIndex];
+    if (!block) return;
+    const nextRows = [...block.rows];
+    if (direction === "forward") {
+      nextRows.splice(patch.atIndex, 0, ...cloneRows(patch.rows));
+    } else {
+      nextRows.splice(patch.atIndex, patch.rows.length);
+    }
+    blocks[patch.blockIndex] = { ...block, rows: nextRows };
+    return;
+  }
 
-  const editorLayer = document.createElement("div");
-  editorLayer.id = "dm-editor-layer";
+  if (patch.type === "deleteRows") {
+    const block = blocks[patch.blockIndex];
+    if (!block) return;
+    const nextRows = [...block.rows];
+    if (direction === "forward") {
+      nextRows.splice(patch.atIndex, patch.rows.length);
+      if (!nextRows.length) nextRows.push(newRow());
+    } else {
+      nextRows.splice(patch.atIndex, 0, ...cloneRows(patch.rows));
+    }
+    blocks[patch.blockIndex] = { ...block, rows: nextRows };
+  }
+}
 
-  const overlayInput = document.createElement("input");
-  overlayInput.id = "dm-editor-input";
-  overlayInput.type = "text";
-  overlayInput.className = "records-list__field";
-  overlayInput.maxLength = maxLength;
+function getCellByMeta(meta) {
+  if (!meta) return null;
+  return document.querySelector(
+    `[data-block-index="${meta.blockIndex}"][data-row-index="${meta.rowIndex}"][data-column-key="${meta.columnKey}"]`
+  );
+}
 
-  const overlayHint = document.createElement("div");
-  overlayHint.id = "dm-editor-hint";
-  overlayHint.textContent = "Máximo 100 caracteres";
-  overlayHint.hidden = true;
+function getCellMetaFromRowKey(rowKey, columnKey) {
+  if (!rowKey || !columnKey) return null;
+  for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
+    const block = blocks[blockIndex];
+    if (!block?.rows?.length) continue;
+    const rowIndex = block.rows.findIndex((r) => r?.rowKey === rowKey);
+    if (rowIndex >= 0) return { blockIndex, rowIndex, columnKey };
+  }
+  return null;
+}
 
- editorLayer.append(overlayInput, overlayHint);
-  document.body.appendChild(editorLayer);
+function restoreHistoryFocus(action) {
+  const fallbackMeta = action?.primaryCell || null;
+  let cell = null;
+  if (fallbackMeta?.rowKey) {
+    const resolved = getCellMetaFromRowKey(fallbackMeta.rowKey, fallbackMeta.columnKey);
+    cell = getCellByMeta(resolved);
+  }
+  if (!cell && fallbackMeta?.blockIndex !== undefined) {
+    cell = getCellByMeta(fallbackMeta);
+  }
+  if (cell) {
+    setSelectedCell(cell);
+    focusCellWithoutEditing(cell);
+  }
+}
 
-  const timeOverlayRoot =
-    document.getElementById("time-overlay-root") || (() => {
-      const root = document.createElement("div");
-      root.id = "time-overlay-root";
-      root.setAttribute("aria-hidden", "true");
-      document.body.appendChild(root);
-      return root;
-    })();
+function runHistoryAction(action, direction) {
+  if (!action?.patches?.length) return;
+  commitPendingHistoryAction();
+  clearPendingHistoryTimer();
+  isApplyingHistory = true;
+  try {
+    const patches = direction === "undo" ? [...action.patches].reverse() : action.patches;
+    const patchDirection = direction === "undo" ? "backward" : "forward";
+    patches.forEach((patch) => applyPatch(patch, patchDirection));
+  } finally {
+    isApplyingHistory = false;
+  }
+  renderRows();
+  restoreHistoryFocus(action);
+}
 
-  const clearActiveHeaderCell = () => {
-    headerCells.forEach((cell) => cell.classList.remove("is-active"));
+function undoLastAction() {
+  commitPendingHistoryAction();
+  const action = undoStack.pop();
+  if (!action) return;
+  runHistoryAction(action, "undo");
+  redoStack.push(action);
+}
+
+function redoLastAction() {
+  commitPendingHistoryAction();
+  const action = redoStack.pop();
+  if (!action) return;
+  runHistoryAction(action, "redo");
+  undoStack.push(action);
+}
+
+function createSetCellPatch(meta, before, after) {
+  return {
+    type: "setCell",
+    blockIndex: meta.blockIndex,
+    rowIndex: meta.rowIndex,
+    rowKey: meta.rowKey,
+    columnKey: meta.columnKey,
+    before,
+    after,
   };
+}
 
-  const setActiveHeaderCell = (index) => {
-    if (index === null || index === undefined || index < 0 || index >= headerCells.length) {
-      clearActiveHeaderCell();
+// ── Valores de celda ──────────────────────────────────────────
+
+function getCellRawValue(row, columnKey) {
+  if (!row) return "";
+  const textFields = ["titulo", "autor", "interprete", "tcIn", "tcOut", "duracion", "modalidad", "tipoMusica", "codigoLibreria", "nombreLibreria"];
+  if (textFields.includes(columnKey)) return row[columnKey] || "";
+  return "";
+}
+
+function parseCellValue(columnKey, rawValue) {
+  const column = getColumnByKey(columnKey);
+  const textValue = `${rawValue ?? ""}`;
+  if (!column) return textValue;
+  if (column.cellType === "select") {
+    const normalizeForMatch = (s) => s.trim().toLocaleUpperCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+    const normalizedInput = normalizeForMatch(textValue);
+    if (!normalizedInput) return "";
+    const matchedOption = column.options?.find((o) => normalizeForMatch(o) === normalizedInput);
+    return matchedOption !== undefined ? matchedOption : "";
+  }
+  if (columnKey === "tcIn" || columnKey === "tcOut" || columnKey === "duracion") {
+    return normalizeTCInput(textValue).value || textValue.trim();
+  }
+  if (columnKey === "titulo") return textValue.slice(0, 150);
+  return textValue;
+}
+
+function getColumnByKey(columnKey) {
+  return columns.find((c) => c.key === columnKey) || null;
+}
+
+// ── Selección ─────────────────────────────────────────────────
+
+function setSelectedCell(cell) {
+  if (IS_VIEWER_MODE) return;
+  if (selectedCell && selectedCell !== cell && selectedCell.isConnected) {
+    selectedCell.classList.remove("is-selected");
+  }
+  selectedCell = cell;
+  if (selectedCell?.dataset?.rowId && selectedCell?.dataset?.columnKey) {
+    selectedCellState = {
+      rowId: selectedCell.dataset.rowId,
+      columnKey: selectedCell.dataset.columnKey,
+    };
+  } else {
+    selectedCellState = null;
+  }
+  if (selectedCell?.isConnected) {
+    selectedCell.classList.add("is-selected");
+    const gridRoot = document.querySelector(".month-block__body-grid");
+    if (gridRoot && !editingCell) gridRoot.focus({ preventScroll: true });
+  }
+  syncFillHandlePosition();
+}
+
+function isSelectedCellState(row, columnKey) {
+  return selectedCellState?.rowId === row.rowKey && selectedCellState?.columnKey === columnKey;
+}
+
+function getCellMeta(cell) {
+  if (!cell?.dataset) return null;
+  const blockIndex = Number.parseInt(cell.dataset.blockIndex, 10);
+  const rowIndex = Number.parseInt(cell.dataset.rowIndex, 10);
+  const columnKey = cell.dataset.columnKey;
+  if (Number.isNaN(blockIndex) || Number.isNaN(rowIndex) || !columnKey) return null;
+  return { blockIndex, rowIndex, columnKey };
+}
+
+function getRowByCell(cell) {
+  const meta = getCellMeta(cell);
+  if (!meta) return null;
+  const block = blocks[meta.blockIndex];
+  const row = block?.rows?.[meta.rowIndex];
+  if (!row) return null;
+  return { meta, row };
+}
+
+// ── Copiar / Pegar ────────────────────────────────────────────
+
+function getCopyRangeValues(selection) {
+  if (!selection || copyRangeBlockIndex === null) return [];
+  const sourceBlock = blocks[copyRangeBlockIndex];
+  if (!sourceBlock?.rows?.length) return [];
+  const orderedRows = getOrderedRowsForMonth(sourceBlock);
+  return orderedRows
+    .filter((item) => item.sourceIndex >= selection.r1 && item.sourceIndex <= selection.r2)
+    .map((item) => getCellRawValue(item.row, selection.col));
+}
+
+function buildCopyTextFromSelection(selection) {
+  const block = blocks[selection.blockIndex];
+  if (!block) return "";
+  const orderedRows = getOrderedRowsForMonth(block);
+  const values = orderedRows
+    .filter((item) => item.sourceIndex >= selection.r1 && item.sourceIndex <= selection.r2)
+    .map((item) => getCellRawValue(item.row, selection.col));
+  return values.join("\n");
+}
+
+function resolveVerticalPasteValues({ rangeSize, clipboardText }) {
+  const normalizedClipboard = `${clipboardText || ""}`.replace(/\r\n/g, "\n");
+  const shouldUseCopyRange =
+    !!copyRange &&
+    copyRangeBlockIndex !== null &&
+    normalizedClipboard === buildCopyTextFromSelection(copyRange);
+
+  if (shouldUseCopyRange) {
+    const sourceValues = getCopyRangeValues(copyRange);
+    if (sourceValues.length === 1) return Array.from({ length: rangeSize }, () => sourceValues[0]);
+    if (sourceValues.length > 1) return sourceValues;
+  }
+
+  const clipboardLines = normalizedClipboard.split("\n");
+  if (clipboardLines.length > 1 && clipboardLines[clipboardLines.length - 1] === "") {
+    clipboardLines.pop();
+  }
+  const normalizedLines = clipboardLines.map((line) => line.split("\t")[0]);
+  if (!normalizedLines.length) return [];
+  if (normalizedLines.length === 1) return Array.from({ length: rangeSize }, () => normalizedLines[0]);
+  return normalizedLines;
+}
+
+function copyTextToClipboard(text) {
+  const fallbackCopy = () => {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.cssText = "position:fixed;opacity:0;pointer-events:none;left:-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  };
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).catch(() => fallbackCopy());
+    return;
+  }
+  fallbackCopy();
+}
+
+function getCopySelection() {
+  if (dragSelection) {
+    return {
+      blockIndex: dragSelection.blockIndex,
+      col: dragSelection.col,
+      r1: dragSelection.r1,
+      r2: dragSelection.r2,
+    };
+  }
+  const activeMeta = getCellMeta(selectedCell);
+  if (!activeMeta) return null;
+  return {
+    blockIndex: activeMeta.blockIndex,
+    col: activeMeta.columnKey,
+    r1: activeMeta.rowIndex,
+    r2: activeMeta.rowIndex,
+  };
+}
+
+function setCopyRange(nextRange, blockIndex = null) {
+  if (!nextRange) {
+    copyRange = null;
+    copyRangeBlockIndex = null;
+    syncCopyAntsPosition();
+    return;
+  }
+  copyRange = { col: nextRange.col, r1: nextRange.r1, r2: nextRange.r2 };
+  copyRangeBlockIndex = blockIndex;
+  syncCopyAntsPosition();
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+
+function getToastElement() {
+  if (toastElement?.isConnected) return toastElement;
+  const toast = document.createElement("div");
+  toast.className = "grid-toast";
+  document.body.appendChild(toast);
+  toastElement = toast;
+  return toastElement;
+}
+
+function showGridToast(message) {
+  if (!message) return;
+  const toast = getToastElement();
+  toast.textContent = message;
+  toast.classList.add("is-visible");
+  if (toastHideTimer) window.clearTimeout(toastHideTimer);
+  toastHideTimer = window.setTimeout(() => {
+    toast.classList.remove("is-visible");
+  }, TOAST_DURATION_MS);
+}
+
+// ── Modal eliminar ────────────────────────────────────────────
+
+function closeDeleteConfirmModal({ shouldRestoreFocus = true } = {}) {
+  if (!deleteConfirmElement) { deleteConfirmState = null; return; }
+  deleteConfirmElement.classList.remove("open");
+  deleteConfirmElement.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("delete-modal-open");
+  const triggerElement = deleteConfirmState?.triggerElement;
+  deleteConfirmState = null;
+  if (shouldRestoreFocus && triggerElement?.isConnected) {
+    triggerElement.focus({ preventScroll: true });
+  }
+}
+
+function handleDeleteConfirmKeydown(event) {
+  if (!deleteConfirmState || !deleteConfirmElement?.classList.contains("open")) return;
+  if (event.key === "Escape") { event.preventDefault(); closeDeleteConfirmModal(); return; }
+  if (event.key !== "Tab") return;
+  const focusable = [...deleteConfirmElement.querySelectorAll("button:not([disabled])")];
+  if (!focusable.length) { event.preventDefault(); return; }
+  const currentIndex = focusable.indexOf(document.activeElement);
+  const direction = event.shiftKey ? -1 : 1;
+  const nextIndex = currentIndex === -1
+    ? 0
+    : (currentIndex + direction + focusable.length) % focusable.length;
+  event.preventDefault();
+  focusable[nextIndex].focus();
+}
+
+function ensureDeleteConfirmElement() {
+  if (deleteConfirmElement) return deleteConfirmElement;
+  const overlay = document.createElement("div");
+  overlay.className = "delete-confirm-overlay";
+  overlay.setAttribute("aria-hidden", "true");
+  overlay.innerHTML = `
+    <div class="delete-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title">
+      <p id="delete-confirm-title" class="delete-confirm-modal__text"></p>
+      <div class="delete-confirm-modal__actions">
+        <button type="button" class="delete-confirm-modal__btn" data-action="ok">OK</button>
+        <button type="button" class="delete-confirm-modal__btn" data-action="cancel">Cancelar</button>
+      </div>
+    </div>
+  `;
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) { event.preventDefault(); event.stopPropagation(); }
+  });
+  overlay.addEventListener("keydown", handleDeleteConfirmKeydown);
+  overlay.addEventListener("click", (event) => {
+    const action = event.target.closest("[data-action]")?.dataset?.action;
+    if (!action) return;
+    if (action === "cancel") { closeDeleteConfirmModal(); return; }
+    if (action === "ok") {
+      const target = deleteConfirmState?.target;
+      closeDeleteConfirmModal({ shouldRestoreFocus: false });
+      executeDeleteRows(target);
+    }
+  });
+  document.body.appendChild(overlay);
+  deleteConfirmElement = overlay;
+  return deleteConfirmElement;
+}
+
+function openDeleteConfirmModal(target, triggerElement = document.activeElement) {
+  if (!target) return;
+  closeContextMenu();
+  const overlay = ensureDeleteConfirmElement();
+  const title = overlay.querySelector(".delete-confirm-modal__text");
+  title.textContent = `Vas a eliminar ${target.count} fila(s)`;
+  deleteConfirmState = {
+    target,
+    triggerElement: triggerElement instanceof HTMLElement ? triggerElement : null,
+  };
+  overlay.classList.add("open");
+  overlay.setAttribute("aria-hidden", "false");
+  document.body.classList.add("delete-modal-open");
+  const okButton = overlay.querySelector('[data-action="ok"]');
+  okButton?.focus({ preventScroll: true });
+}
+
+// ── Overlay de título ─────────────────────────────────────────
+
+function getTitleOverlayLayer() {
+  if (titleOverlayLayer?.isConnected) return titleOverlayLayer;
+  const gridRoot = document.querySelector(".month-block__body-grid");
+  if (!gridRoot) return null;
+  const layer = document.createElement("div");
+  layer.className = "title-edit-overlay-layer";
+  gridRoot.appendChild(layer);
+  titleOverlayLayer = layer;
+  return titleOverlayLayer;
+}
+
+// ── Fill handle ───────────────────────────────────────────────
+
+function computeFillValue(masterValue, targetOffset, columnKey) {
+  const normalizedValue = `${masterValue ?? ""}`;
+  if (!normalizedValue) return normalizedValue;
+  if (["modalidad", "tipoMusica", "duracion"].includes(columnKey)) return normalizedValue;
+  const seriesMatch = normalizedValue.match(/^(.*?)(\d+)$/);
+  if (!seriesMatch) return normalizedValue;
+  const prefix = seriesMatch[1];
+  const numberText = seriesMatch[2];
+  const nextNumber = Number.parseInt(numberText, 10) + targetOffset;
+  const paddedNumber = String(nextNumber).padStart(numberText.length, "0");
+  return `${prefix}${paddedNumber}`;
+}
+
+function ensureFillHandleElement() {
+  if (fillHandleElement?.isConnected) return fillHandleElement;
+  const gridRoot = document.querySelector(".month-block__body-grid");
+  if (!gridRoot) return null;
+  fillHandleElement = document.createElement("button");
+  fillHandleElement.type = "button";
+  fillHandleElement.className = "fill-handle";
+  fillHandleElement.setAttribute("aria-label", "Autorrelleno hacia abajo");
+  fillHandleElement.setAttribute("tabindex", "-1");
+  fillHandleElement.addEventListener("pointerdown", startFillDrag);
+  gridRoot.appendChild(fillHandleElement);
+  return fillHandleElement;
+}
+
+function syncFillHandlePosition() {
+  const handle = ensureFillHandleElement();
+  if (!handle) return;
+  if (!selectedCell || editingCell || fillDragState || dragSelectState.isDragSelect || !selectedCell.isConnected) {
+    handle.classList.remove("is-visible");
+    return;
+  }
+  const gridRoot = document.querySelector(".month-block__body-grid");
+  if (!gridRoot) { handle.classList.remove("is-visible"); return; }
+  const cellRect = selectedCell.getBoundingClientRect();
+  const rootRect = gridRoot.getBoundingClientRect();
+  handle.style.left = `${cellRect.right - rootRect.left - 5}px`;
+  handle.style.top = `${cellRect.bottom - rootRect.top - 5}px`;
+  handle.classList.add("is-visible");
+}
+
+function clearFillPreview() {
+  document.querySelectorAll(".left-row > div[data-column-key].is-fill-preview").forEach((cell) => {
+    cell.classList.remove("is-fill-preview");
+  });
+}
+
+function updateFillPreview(masterMeta, targetRowIndex) {
+  clearFillPreview();
+  if (targetRowIndex <= masterMeta.rowIndex) return;
+  for (let rowIndex = masterMeta.rowIndex + 1; rowIndex <= targetRowIndex; rowIndex++) {
+    const cell = document.querySelector(
+      `[data-block-index="${masterMeta.blockIndex}"][data-row-index="${rowIndex}"][data-column-key="${masterMeta.columnKey}"]`
+    );
+    if (cell) cell.classList.add("is-fill-preview");
+  }
+}
+
+function getFillTargetRowIndexFromPointer(event, masterMeta) {
+  const cells = document.elementsFromPoint(event.clientX, event.clientY)
+    .map((el) => el.closest?.("[data-column-key]"))
+    .filter(Boolean);
+  const matchedCell = cells.find(
+    (cell) =>
+      cell.dataset.blockIndex === String(masterMeta.blockIndex) &&
+      cell.dataset.columnKey === masterMeta.columnKey
+  );
+  if (matchedCell) {
+    const nextIndex = Number.parseInt(matchedCell.dataset.rowIndex, 10);
+    return Number.isNaN(nextIndex) ? masterMeta.rowIndex : nextIndex;
+  }
+  const block = blocks[masterMeta.blockIndex];
+  const lastRowIndex = Math.max(0, (block?.rows?.length || 1) - 1);
+  const lastCell = document.querySelector(
+    `[data-block-index="${masterMeta.blockIndex}"][data-row-index="${lastRowIndex}"][data-column-key="${masterMeta.columnKey}"]`
+  );
+  if (lastCell && event.clientY > lastCell.getBoundingClientRect().bottom) return lastRowIndex;
+  return masterMeta.rowIndex;
+}
+
+function applyFillDown(masterMeta, targetRowIndex) {
+  if (targetRowIndex <= masterMeta.rowIndex) return;
+  const masterCell = document.querySelector(
+    `[data-block-index="${masterMeta.blockIndex}"][data-row-index="${masterMeta.rowIndex}"][data-column-key="${masterMeta.columnKey}"]`
+  );
+  const masterData = masterCell ? getRowByCell(masterCell) : null;
+  if (!masterData) return;
+  const masterValue = getCellRawValue(masterData.row, masterMeta.columnKey);
+  withHistoryAction("fill", { groupKey: `fill:${masterMeta.blockIndex}:${masterMeta.columnKey}:${masterMeta.rowIndex}` }, () => {
+    for (let rowIndex = masterMeta.rowIndex + 1; rowIndex <= targetRowIndex; rowIndex++) {
+      const targetCell = document.querySelector(
+        `[data-block-index="${masterMeta.blockIndex}"][data-row-index="${rowIndex}"][data-column-key="${masterMeta.columnKey}"]`
+      );
+      if (!targetCell) continue;
+      const offset = rowIndex - masterMeta.rowIndex;
+      setCellValue(targetCell, computeFillValue(masterValue, offset, masterMeta.columnKey), {
+        type: "fill",
+        groupKey: `fill:${masterMeta.blockIndex}:${masterMeta.columnKey}:${masterMeta.rowIndex}`,
+      });
+    }
+  });
+  renderRows();
+}
+
+function stopFillDrag(applyChanges) {
+  if (!fillDragState) return;
+  const { pointerId, masterMeta, previewRowIndex } = fillDragState;
+  const handle = ensureFillHandleElement();
+  if (handle && pointerId !== null && pointerId !== undefined) {
+    handle.releasePointerCapture?.(pointerId);
+  }
+  document.removeEventListener("pointermove", handleFillDragMove);
+  document.removeEventListener("pointerup", handleFillDragEnd);
+  document.removeEventListener("pointercancel", handleFillDragCancel);
+  clearFillPreview();
+  fillDragState = null;
+  if (applyChanges) applyFillDown(masterMeta, previewRowIndex);
+  syncFillHandlePosition();
+}
+
+function handleFillDragMove(event) {
+  if (!fillDragState) return;
+  const nextTarget = getFillTargetRowIndexFromPointer(event, fillDragState.masterMeta);
+  const clampedTarget = Math.max(fillDragState.masterMeta.rowIndex, nextTarget);
+  fillDragState.previewRowIndex = clampedTarget;
+  updateFillPreview(fillDragState.masterMeta, clampedTarget);
+}
+
+function handleFillDragEnd(event) {
+  event.preventDefault();
+  stopFillDrag(true);
+}
+
+function handleFillDragCancel() {
+  stopFillDrag(false);
+}
+
+function startFillDrag(event) {
+  if (IS_VIEWER_MODE) return;
+  if (event.button !== 0 || !selectedCell || editingCell) return;
+  const masterMeta = getCellMeta(selectedCell);
+  if (!masterMeta) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const handle = ensureFillHandleElement();
+  handle?.setPointerCapture?.(event.pointerId);
+  fillDragState = { pointerId: event.pointerId, masterMeta, previewRowIndex: masterMeta.rowIndex };
+  document.addEventListener("pointermove", handleFillDragMove);
+  document.addEventListener("pointerup", handleFillDragEnd);
+  document.addEventListener("pointercancel", handleFillDragCancel);
+}
+
+// ── Copy ants ─────────────────────────────────────────────────
+
+function ensureCopyAntsElement() {
+  if (copyAntsElement?.isConnected) return copyAntsElement;
+  const gridRoot = document.querySelector(".month-block__body-grid");
+  if (!gridRoot) return null;
+  copyAntsElement = document.createElement("div");
+  copyAntsElement.className = "copy-ants";
+  copyAntsElement.setAttribute("aria-hidden", "true");
+  gridRoot.appendChild(copyAntsElement);
+  return copyAntsElement;
+}
+
+function syncCopyAntsPosition() {
+  const ants = ensureCopyAntsElement();
+  if (!ants) return;
+  if (!copyRange || copyRangeBlockIndex === null) { ants.classList.remove("is-visible"); return; }
+  const gridRoot = document.querySelector(".month-block__body-grid");
+  if (!gridRoot) { ants.classList.remove("is-visible"); return; }
+  const topCell = document.querySelector(
+    `[data-block-index="${copyRangeBlockIndex}"][data-row-index="${copyRange.r1}"][data-column-key="${copyRange.col}"]`
+  );
+  const bottomCell = document.querySelector(
+    `[data-block-index="${copyRangeBlockIndex}"][data-row-index="${copyRange.r2}"][data-column-key="${copyRange.col}"]`
+  );
+  if (!topCell || !bottomCell) { ants.classList.remove("is-visible"); return; }
+  const rootRect = gridRoot.getBoundingClientRect();
+  const topRect = topCell.getBoundingClientRect();
+  const bottomRect = bottomCell.getBoundingClientRect();
+  ants.style.left = `${topRect.left - rootRect.left}px`;
+  ants.style.top = `${topRect.top - rootRect.top}px`;
+  ants.style.width = `${topRect.width}px`;
+  ants.style.height = `${bottomRect.bottom - topRect.top}px`;
+  ants.classList.add("is-visible");
+}
+
+// ── Selección drag ────────────────────────────────────────────
+
+function clearDragSelectionPreview() {
+  document.querySelectorAll(".left-row > div[data-column-key].is-drag-selected").forEach((cell) => {
+    cell.classList.remove("is-drag-selected");
+  });
+}
+
+function renderDragSelectionPreview(selection) {
+  clearDragSelectionPreview();
+  if (!selection) return;
+  for (let rowIndex = selection.r1; rowIndex <= selection.r2; rowIndex++) {
+    const cell = document.querySelector(
+      `[data-block-index="${selection.blockIndex}"][data-row-index="${rowIndex}"][data-column-key="${selection.col}"]`
+    );
+    if (cell) cell.classList.add("is-drag-selected");
+  }
+}
+
+function getCellFromPointer(event) {
+  const directCell = event.target?.closest?.("[data-column-key]");
+  if (directCell) return directCell;
+  const hoveredCells = document.elementsFromPoint(event.clientX, event.clientY)
+    .map((el) => el.closest?.("[data-column-key]"))
+    .filter(Boolean);
+  return hoveredCells[0] || null;
+}
+
+function updateDragSelectionFromPointer(event) {
+  if (!dragSelectState.pointerDown || !dragSelectState.isDragSelect) return;
+  const hoverCell = getCellFromPointer(event);
+  const hoverMeta = getCellMeta(hoverCell);
+  if (!hoverMeta || hoverMeta.blockIndex !== dragSelectState.anchorBlockIndex) return;
+  const r1 = Math.min(dragSelectState.anchorRow, hoverMeta.rowIndex);
+  const r2 = Math.max(dragSelectState.anchorRow, hoverMeta.rowIndex);
+  dragSelection = {
+    blockIndex: dragSelectState.anchorBlockIndex,
+    col: dragSelectState.anchorCol,
+    r1,
+    r2,
+  };
+  renderDragSelectionPreview(dragSelection);
+}
+
+function resetDragSelectState() {
+  dragSelectState = {
+    pointerDown: false,
+    isDragSelect: false,
+    anchorCell: null,
+    anchorCol: null,
+    anchorBlockIndex: null,
+    anchorRow: null,
+    downX: 0,
+    downY: 0,
+  };
+}
+
+function handleGridPointerDown(event) {
+  if (IS_VIEWER_MODE) return;
+  if (event.button !== 0 || fillDragState || editingCell) return;
+  if (event.target.closest(".fill-handle")) return;
+  const cell = event.target.closest(".left-row > div[data-column-key]");
+  if (!cell) return;
+  const meta = getCellMeta(cell);
+  if (!meta) return;
+
+  if (event.shiftKey && !event.ctrlKey && !event.metaKey) {
+    event.preventDefault();
+    if (
+      shiftSelectAnchor &&
+      shiftSelectAnchor.blockIndex === meta.blockIndex &&
+      shiftSelectAnchor.columnKey === meta.columnKey
+    ) {
+      const block = blocks[meta.blockIndex];
+      const orderedRows = getOrderedRowsForMonth(block);
+      const anchorVisIdx = orderedRows.findIndex((item) => item.sourceIndex === shiftSelectAnchor.anchorSourceIndex);
+      const targetVisIdx = orderedRows.findIndex((item) => item.sourceIndex === meta.rowIndex);
+      if (anchorVisIdx >= 0 && targetVisIdx >= 0) {
+        const minVis = Math.min(anchorVisIdx, targetVisIdx);
+        const maxVis = Math.max(anchorVisIdx, targetVisIdx);
+        const selectedSourceIndices = orderedRows.slice(minVis, maxVis + 1).map((item) => item.sourceIndex);
+        dragSelection = {
+          blockIndex: meta.blockIndex,
+          col: meta.columnKey,
+          r1: Math.min(...selectedSourceIndices),
+          r2: Math.max(...selectedSourceIndices),
+        };
+        setSelectedCell(cell);
+        renderDragSelectionPreview(dragSelection);
+      }
+    } else {
+      const block = blocks[meta.blockIndex];
+      const orderedRows = getOrderedRowsForMonth(block);
+      const visIdx = Math.max(0, orderedRows.findIndex((item) => item.sourceIndex === meta.rowIndex));
+      shiftSelectAnchor = {
+        blockIndex: meta.blockIndex,
+        columnKey: meta.columnKey,
+        anchorSourceIndex: meta.rowIndex,
+        anchorVisibleIndex: visIdx,
+        activeVisibleIndex: visIdx,
+      };
+      dragSelection = null;
+      clearDragSelectionPreview();
+      setSelectedCell(cell);
+    }
+    return;
+  }
+
+  const block = blocks[meta.blockIndex];
+  const orderedRows = getOrderedRowsForMonth(block);
+  const anchorVisIdx = Math.max(0, orderedRows.findIndex((item) => item.sourceIndex === meta.rowIndex));
+  shiftSelectAnchor = {
+    blockIndex: meta.blockIndex,
+    columnKey: meta.columnKey,
+    anchorSourceIndex: meta.rowIndex,
+    anchorVisibleIndex: anchorVisIdx,
+    activeVisibleIndex: anchorVisIdx,
+  };
+  dragSelection = null;
+  clearDragSelectionPreview();
+  dragSelectState = {
+    pointerDown: true,
+    isDragSelect: false,
+    anchorCell: cell,
+    anchorCol: meta.columnKey,
+    anchorBlockIndex: meta.blockIndex,
+    anchorRow: meta.rowIndex,
+    downX: event.clientX,
+    downY: event.clientY,
+  };
+}
+
+function handleGridPointerMove(event) {
+  if (!dragSelectState.pointerDown || fillDragState) return;
+  if (!dragSelectState.isDragSelect) {
+    const dx = event.clientX - dragSelectState.downX;
+    const dy = event.clientY - dragSelectState.downY;
+    if (Math.hypot(dx, dy) <= DRAG_THRESHOLD_PX) return;
+    dragSelectState.isDragSelect = true;
+    dragSelection = {
+      blockIndex: dragSelectState.anchorBlockIndex,
+      col: dragSelectState.anchorCol,
+      r1: dragSelectState.anchorRow,
+      r2: dragSelectState.anchorRow,
+    };
+    renderDragSelectionPreview(dragSelection);
+  }
+  updateDragSelectionFromPointer(event);
+}
+
+function handleGridPointerUp() {
+  if (!dragSelectState.pointerDown) return;
+  if (dragSelectState.isDragSelect) {
+    suppressNextGridClick = true;
+    setSelectedCell(dragSelectState.anchorCell);
+    setTimeout(() => { suppressNextGridClick = false; }, 0);
+  }
+  resetDragSelectState();
+}
+
+function handleGridPointerCancel() {
+  if (!dragSelectState.pointerDown) return;
+  resetDragSelectState();
+}
+
+function handleGridClickCapture(event) {
+  if (!suppressNextGridClick) return;
+  if (event.target.closest(".left-row > div[data-column-key]")) {
+    event.preventDefault();
+    event.stopPropagation();
+    suppressNextGridClick = false;
+  }
+}
+
+// ── Navegación teclado ────────────────────────────────────────
+
+function isEditingElement(element) {
+  if (!element) return false;
+  const tagName = element.tagName?.toLowerCase();
+  return tagName === "input" || tagName === "textarea" || tagName === "select" || element.isContentEditable;
+}
+
+function getAdjacentCellByArrow(cell, key) {
+  const meta = getCellMeta(cell);
+  if (!meta) return null;
+
+  if (key === "ArrowLeft" || key === "ArrowRight") {
+    const row = cell.parentElement;
+    if (!row) return null;
+    const rowCells = [...row.querySelectorAll("[data-column-key]")];
+    const currentIndex = rowCells.indexOf(cell);
+    if (currentIndex < 0) return null;
+    const delta = key === "ArrowLeft" ? -1 : 1;
+    return rowCells[currentIndex + delta] || null;
+  }
+
+  if (key === "ArrowUp" || key === "ArrowDown") {
+    const block = blocks[meta.blockIndex];
+    if (!block) return null;
+    const delta = key === "ArrowUp" ? -1 : 1;
+    const nextRowIndex = meta.rowIndex + delta;
+    if (nextRowIndex < 0 || nextRowIndex >= block.rows.length) return null;
+    return document.querySelector(
+      `[data-block-index="${meta.blockIndex}"][data-row-index="${nextRowIndex}"][data-column-key="${meta.columnKey}"]`
+    );
+  }
+  return null;
+}
+
+function isCellVisible(cell) {
+  if (!cell) return false;
+  const styles = window.getComputedStyle(cell);
+  return styles.display !== "none" && styles.visibility !== "hidden";
+}
+
+function getRowEditableColumnKeys(rowElement) {
+  if (!rowElement) return [];
+  return columns
+    .filter((c) => c.editable !== false && c.visible !== false)
+    .map((c) => c.key)
+    .filter((columnKey) => {
+      const rowCell = rowElement.querySelector(`[data-column-key="${columnKey}"]`);
+      return isCellVisible(rowCell);
+    });
+}
+
+function getNextTabCell(cell, direction) {
+  const meta = getCellMeta(cell);
+  if (!meta) return null;
+  const block = blocks[meta.blockIndex];
+  if (!block) return null;
+  const currentRow = cell.parentElement;
+  const currentRowColumns = getRowEditableColumnKeys(currentRow);
+  if (!currentRowColumns.length) return null;
+  const currentColumnIndex = currentRowColumns.indexOf(meta.columnKey);
+  if (currentColumnIndex < 0) return null;
+  const nextColumnIndex = currentColumnIndex + direction;
+  if (nextColumnIndex >= 0 && nextColumnIndex < currentRowColumns.length) {
+    return currentRow.querySelector(`[data-column-key="${currentRowColumns[nextColumnIndex]}"]`);
+  }
+  let nextRowIndex = meta.rowIndex + direction;
+  while (nextRowIndex >= 0 && nextRowIndex < block.rows.length) {
+    const nextRow = document.querySelector(
+      `[data-block-index="${meta.blockIndex}"][data-row-index="${nextRowIndex}"]`
+    )?.parentElement;
+    const nextRowColumns = getRowEditableColumnKeys(nextRow);
+    if (nextRowColumns.length) {
+      const targetColumnKey = direction > 0 ? nextRowColumns[0] : nextRowColumns[nextRowColumns.length - 1];
+      const nextCell = nextRow?.querySelector(`[data-column-key="${targetColumnKey}"]`);
+      if (nextCell) return nextCell;
+    }
+    nextRowIndex += direction;
+  }
+  return cell;
+}
+
+function focusCellWithoutEditing(cell) {
+  if (!cell || editingCell) return;
+  requestAnimationFrame(() => {
+    if (!editingCell) {
+      const gridRoot = document.querySelector(".month-block__body-grid");
+      gridRoot?.focus({ preventScroll: true });
+    }
+  });
+}
+
+function moveSelectionDownWithinBlock(cell) {
+  const meta = getCellMeta(cell);
+  if (!meta) return { moved: false, cell };
+  const block = blocks[meta.blockIndex];
+  const nextRowIndex = meta.rowIndex + 1;
+  if (!block || nextRowIndex >= block.rows.length) return { moved: false, cell };
+  const nextCell = document.querySelector(
+    `[data-block-index="${meta.blockIndex}"][data-row-index="${nextRowIndex}"][data-column-key="${meta.columnKey}"]`
+  );
+  if (!nextCell) return { moved: false, cell };
+  setSelectedCell(nextCell);
+  return { moved: true, cell: nextCell };
+}
+
+function focusCellEditor(cell) {
+  if (!cell) return;
+  if (typeof cell.openEditMode === "function") {
+    cell.openEditMode({ keepContent: true });
+  }
+}
+
+// ── Dropdown género ───────────────────────────────────────────
+
+function ensureGenreMenuElement() {
+  if (genreMenuElement?.isConnected) return genreMenuElement;
+  genreMenuElement = document.createElement("div");
+  genreMenuElement.className = "genre-dropdown-menu";
+  genreMenuElement.setAttribute("role", "listbox");
+  document.body.appendChild(genreMenuElement);
+  return genreMenuElement;
+}
+
+// ── Establecer valor de celda ─────────────────────────────────
+
+function setCellValue(cell, rawValue, historyOptions = {}) {
+  const rowData = getRowByCell(cell);
+  if (!rowData) return null;
+  const { row, meta } = rowData;
+  // Limpiar error de exportación al editar la celda
+  cell.classList.remove("has-export-error");
+  cell.querySelector(".export-required-label")?.remove();
+
+  const before = getCellRawValue(row, meta.columnKey);
+  const parsedValue = parseCellValue(meta.columnKey, rawValue);
+
+  const selectKeys = ["modalidad", "tipoMusica"];
+  const textKeys = ["titulo", "autor", "interprete", "tcIn", "tcOut", "duracion", "codigoLibreria", "nombreLibreria"];
+
+  if (textKeys.includes(meta.columnKey)) {
+    row[meta.columnKey] = parsedValue;
+
+    // TC IN o TC OUT cambian → recalcular Duración
+    if (meta.columnKey === "tcIn" || meta.columnKey === "tcOut") {
+      const newDur = calcDuracion(row.tcIn, row.tcOut);
+      row.duracion = newDur;
+      const durCell = document.querySelector(
+        `[data-block-index="${meta.blockIndex}"][data-row-index="${meta.rowIndex}"][data-column-key="duracion"]`
+      );
+      if (durCell) {
+        durCell.textContent = newDur;
+        durCell.classList.toggle("has-error", !!newDur && !isValidTCFormat(newDur));
+      }
+    }
+
+    // Duración editada a mano → TC IN = 00:00:00, TC OUT = Duración
+    if (meta.columnKey === "duracion" && parsedValue) {
+      row.tcIn  = "00:00:00";
+      row.tcOut = parsedValue;
+      ["tcIn", "tcOut"].forEach((key) => {
+        const c = document.querySelector(
+          `[data-block-index="${meta.blockIndex}"][data-row-index="${meta.rowIndex}"][data-column-key="${key}"]`
+        );
+        if (c) {
+          c.textContent = row[key];
+          c.classList.remove("has-error");
+        }
+      });
+    }
+  } else if (selectKeys.includes(meta.columnKey)) {
+    row[meta.columnKey] = parsedValue;
+  }
+
+  const after = getCellRawValue(row, meta.columnKey);
+  if (before !== after) {
+    addPatchToCurrentAction(
+      createSetCellPatch({ ...meta, rowKey: row.rowKey }, before, after),
+      {
+        type: historyOptions.type || "edit",
+        groupKey: historyOptions.groupKey || `${meta.blockIndex}:${meta.rowIndex}:${meta.columnKey}`,
+      }
+    );
+  }
+  return { row, meta };
+}
+
+// ── Filas ─────────────────────────────────────────────────────
+
+function insertRows(blockIndex, atIndex, count = 1, options = {}) {
+  if (!Number.isInteger(count) || count <= 0) return [];
+  const block = blocks[blockIndex];
+  if (!block) return [];
+  const nextRows = [...block.rows];
+  const rowsToInsert = Array.from({ length: count }, () => newRow());
+  nextRows.splice(atIndex, 0, ...rowsToInsert);
+  blocks[blockIndex] = { ...block, rows: nextRows };
+  addPatchToCurrentAction(
+    { type: "insertRows", blockIndex, atIndex, rows: cloneRows(rowsToInsert) },
+    { type: options.historyType || "rows", groupKey: options.groupKey || `insert:${blockIndex}:${atIndex}` }
+  );
+  if (options.render !== false) renderRows();
+  return rowsToInsert;
+}
+
+function deleteRowsInBlock(blockIndex, startRow, endRow, options = {}) {
+  const block = blocks[blockIndex];
+  if (!block?.rows?.length) return null;
+  const safeStart = Math.max(0, Math.min(startRow, endRow));
+  const safeEnd = Math.min(block.rows.length - 1, Math.max(startRow, endRow));
+  if (safeEnd < safeStart) return null;
+  const removeCount = safeEnd - safeStart + 1;
+  const removedRows = cloneRows(block.rows.slice(safeStart, safeEnd + 1));
+  const nextRows = [...block.rows];
+  nextRows.splice(safeStart, removeCount);
+  if (!nextRows.length) nextRows.push(newRow());
+  blocks[blockIndex] = { ...block, rows: nextRows };
+  addPatchToCurrentAction(
+    { type: "deleteRows", blockIndex, atIndex: safeStart, rows: removedRows },
+    { type: options.historyType || "rows", groupKey: options.groupKey || `delete:${blockIndex}:${safeStart}` }
+  );
+  return { removedStart: safeStart, removedEnd: safeEnd, removeCount, lastRowIndex: nextRows.length - 1 };
+}
+
+function createSelectionState(blockIndex, rowIndex, columnKey) {
+  return { blockIndex, rowIndex, columnKey };
+}
+
+function normalizeSelectionAfterDelete(blockIndex, deleteInfo) {
+  if (dragSelection && dragSelection.blockIndex === blockIndex) {
+    if (dragSelection.r2 < deleteInfo.removedStart) {
+      // Keep as-is
+    } else if (dragSelection.r1 > deleteInfo.removedEnd) {
+      dragSelection = {
+        ...dragSelection,
+        r1: Math.max(0, dragSelection.r1 - deleteInfo.removeCount),
+        r2: Math.max(0, dragSelection.r2 - deleteInfo.removeCount),
+      };
+    } else {
+      dragSelection = null;
+    }
+  }
+
+  if (copyRange && copyRangeBlockIndex === blockIndex) {
+    const intersects = !(copyRange.r2 < deleteInfo.removedStart || copyRange.r1 > deleteInfo.removedEnd);
+    if (intersects) {
+      setCopyRange(null);
+    } else if (copyRange.r1 > deleteInfo.removedEnd) {
+      setCopyRange(
+        { ...copyRange, r1: Math.max(0, copyRange.r1 - deleteInfo.removeCount), r2: Math.max(0, copyRange.r2 - deleteInfo.removeCount) },
+        copyRangeBlockIndex
+      );
+    }
+  }
+
+  const activeMeta = getCellMeta(selectedCell);
+  let nextSelection = null;
+  if (activeMeta && activeMeta.blockIndex === blockIndex) {
+    if (activeMeta.rowIndex < deleteInfo.removedStart) {
+      nextSelection = createSelectionState(blockIndex, activeMeta.rowIndex, activeMeta.columnKey);
+    } else if (activeMeta.rowIndex > deleteInfo.removedEnd) {
+      nextSelection = createSelectionState(blockIndex, Math.max(0, activeMeta.rowIndex - deleteInfo.removeCount), activeMeta.columnKey);
+    } else {
+      nextSelection = createSelectionState(blockIndex, Math.min(deleteInfo.removedStart, deleteInfo.lastRowIndex), activeMeta.columnKey);
+    }
+  }
+
+  renderRows();
+
+  if (nextSelection) {
+    const nextCell = document.querySelector(
+      `[data-block-index="${nextSelection.blockIndex}"][data-row-index="${nextSelection.rowIndex}"][data-column-key="${nextSelection.columnKey}"]`
+    );
+    if (nextCell) { setSelectedCell(nextCell); focusCellWithoutEditing(nextCell); }
+    else setSelectedCell(null);
+  } else {
+    setSelectedCell(null);
+  }
+  renderDragSelectionPreview(dragSelection);
+}
+
+function executeDeleteRows(target) {
+  if (!target) return;
+  withHistoryAction("delete-rows", { groupKey: `delete:${target.blockIndex}:${target.startRow}:${target.endRow}` }, () => {
+    const deleteInfo = deleteRowsInBlock(target.blockIndex, target.startRow, target.endRow, { historyType: "delete-rows" });
+    if (!deleteInfo) return;
+    normalizeSelectionAfterDelete(target.blockIndex, deleteInfo);
+  });
+}
+
+function getDeleteTarget(preferredBlockIndex = null, preferredRowIndex = null) {
+  if (
+    dragSelection &&
+    Number.isInteger(dragSelection.blockIndex) &&
+    Number.isInteger(dragSelection.r1) &&
+    Number.isInteger(dragSelection.r2)
+  ) {
+    if (preferredBlockIndex === null || dragSelection.blockIndex === preferredBlockIndex) {
+      const startRow = Math.min(dragSelection.r1, dragSelection.r2);
+      const endRow = Math.max(dragSelection.r1, dragSelection.r2);
+      return { blockIndex: dragSelection.blockIndex, startRow, endRow, count: endRow - startRow + 1 };
+    }
+  }
+  const activeMeta = getCellMeta(selectedCell);
+  if (!activeMeta) return null;
+  if (preferredBlockIndex !== null && activeMeta.blockIndex !== preferredBlockIndex) return null;
+  return { blockIndex: activeMeta.blockIndex, startRow: activeMeta.rowIndex, endRow: activeMeta.rowIndex, count: 1 };
+}
+
+function getInsertTarget(blockIndex, rowIndex) {
+  if (
+    dragSelection &&
+    Number.isInteger(dragSelection.blockIndex) &&
+    dragSelection.blockIndex === blockIndex
+  ) {
+    const startRow = Math.min(dragSelection.r1, dragSelection.r2);
+    const endRow = Math.max(dragSelection.r1, dragSelection.r2);
+    if (rowIndex >= startRow && rowIndex <= endRow) {
+      return { blockIndex, startRow, endRow, count: endRow - startRow + 1 };
+    }
+  }
+  return { blockIndex, startRow: rowIndex, endRow: rowIndex, count: 1 };
+}
+
+// ── Menú contextual ───────────────────────────────────────────
+
+function ensureContextMenuElement() {
+  if (menuElement) return menuElement;
+  menuElement = document.createElement("div");
+  menuElement.className = "context-menu";
+  menuElement.setAttribute("role", "menu");
+  menuElement.innerHTML = `
+    <button type="button" class="context-menu__item" data-action="above" role="menuitem">Añadir filas encima</button>
+    <button type="button" class="context-menu__item" data-action="below" role="menuitem">Añadir filas debajo</button>
+    <div class="context-menu__divider" role="separator"></div>
+    <button type="button" class="context-menu__item" data-action="delete" role="menuitem">Eliminar filas</button>
+  `;
+  menuElement.addEventListener("click", (event) => {
+    const target = event.target.closest("[data-action]");
+    if (!target || !contextMenu.open) return;
+    const blockIndex = Number.parseInt(contextMenu.blockIndex, 10);
+    const rowIndex = Number.parseInt(contextMenu.rowIndex, 10);
+    if (!Number.isInteger(blockIndex) || !Number.isInteger(rowIndex)) { closeContextMenu(); return; }
+
+    if (target.dataset.action === "above") {
+      const insertTarget = getInsertTarget(blockIndex, rowIndex);
+      withHistoryAction("insert-rows", { groupKey: `insert:${blockIndex}:${insertTarget.startRow}` }, () => {
+        insertRows(blockIndex, insertTarget.startRow, insertTarget.count, { historyType: "insert-rows" });
+      });
+      closeContextMenu();
       return;
     }
-    headerCells.forEach((cell, idx) => {
-      cell.classList.toggle("is-active", idx === index);
+    if (target.dataset.action === "below") {
+      const insertTarget = getInsertTarget(blockIndex, rowIndex);
+      withHistoryAction("insert-rows", { groupKey: `insert:${blockIndex}:${insertTarget.endRow + 1}` }, () => {
+        insertRows(blockIndex, insertTarget.endRow + 1, insertTarget.count, { historyType: "insert-rows" });
+      });
+      closeContextMenu();
+      return;
+    }
+    if (target.dataset.action === "delete") {
+      const deleteTarget = getDeleteTarget(blockIndex, rowIndex);
+      if (!deleteTarget) return;
+      openDeleteConfirmModal(deleteTarget);
+      closeContextMenu();
+    }
+  });
+  document.body.appendChild(menuElement);
+  return menuElement;
+}
+
+function handleOutsidePointer(event) {
+  if (menuElement && !menuElement.contains(event.target)) closeContextMenu();
+}
+
+function handleMenuEscape(event) {
+  if (event.key === "Escape") closeContextMenu();
+}
+
+function closeContextMenu() {
+  contextMenu = { open: false, x: 0, y: 0, blockIndex: -1, rowIndex: -1 };
+  if (menuElement) menuElement.classList.remove("open");
+  document.removeEventListener("mousedown", handleOutsidePointer);
+  document.removeEventListener("keydown", handleMenuEscape);
+}
+
+function openContextMenu(event, blockIndex, rowIndex) {
+  if (IS_VIEWER_MODE) { event.preventDefault(); return; }
+  event.preventDefault();
+  contextMenu = { open: true, x: event.clientX, y: event.clientY, blockIndex, rowIndex };
+  const menu = ensureContextMenuElement();
+  menu.classList.add("open");
+  const EDGE_PADDING_PX = 8;
+  const menuRect = menu.getBoundingClientRect();
+  const maxLeft = Math.max(EDGE_PADDING_PX, window.innerWidth - menuRect.width - EDGE_PADDING_PX);
+  const maxTop = Math.max(EDGE_PADDING_PX, window.innerHeight - menuRect.height - EDGE_PADDING_PX);
+  menu.style.left = `${Math.max(EDGE_PADDING_PX, Math.min(contextMenu.x, maxLeft))}px`;
+  menu.style.top = `${Math.max(EDGE_PADDING_PX, Math.min(contextMenu.y, maxTop))}px`;
+  document.addEventListener("mousedown", handleOutsidePointer);
+  document.addEventListener("keydown", handleMenuEscape);
+}
+
+// ── Celdas: adjuntar comportamiento ───────────────────────────
+
+// Celda de texto genérica (autor, intérprete, tcIn, tcOut, codigoLibreria, nombreLibreria)
+function attachTextCell(cell, row, columnKey) {
+  cell.classList.add("text-cell");
+  cell.tabIndex = 0;
+
+  const renderReadMode = () => {
+    cell.classList.remove("is-editing");
+    const value = row[columnKey] || "";
+    cell.textContent = value;
+    if (columnKey === "tcIn" || columnKey === "tcOut") {
+      cell.classList.toggle("has-error", !!value && !isValidTCFormat(value));
+    }
+  };
+
+  const openEditMode = ({ replaceWith, keepContent = false } = {}) => {
+    if (IS_VIEWER_MODE) return;
+    if (editingCell?.cell === cell) return;
+    setCopyRange(null);
+    cell.classList.add("is-editing");
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "date-cell__input editor-overlay is-editing";
+    const currentText = row[columnKey] || "";
+    input.value = keepContent ? currentText : (replaceWith ?? currentText);
+    cell.textContent = "";
+    cell.appendChild(input);
+
+    const cleanup = () => {
+      if (editingCell?.cell === cell) editingCell = null;
+      renderReadMode();
+      syncFillHandlePosition();
+    };
+    const commit = () => {
+      setCellValue(cell, input.value || "", {
+        type: "edit",
+        groupKey: `${cell.dataset.blockIndex}:${cell.dataset.rowIndex}:${cell.dataset.columnKey}`,
+      });
+      cleanup();
+    };
+    input.addEventListener("blur", commit, { once: true });
+    editingCell = { cell, input, commit: () => input.blur(), cancel: cleanup };
+    syncFillHandlePosition();
+    requestAnimationFrame(() => {
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(input.value.length, input.value.length);
     });
   };
 
-  const getHeaderIndexForTarget = (target) => {
-    if (!target) {
-      return null;
-    }
-    const row = target.closest(".records-list__row");
-    if (!row) {
-      return null;
-    }
+  cell.openEditMode = openEditMode;
+  cell.addEventListener("click", () => setSelectedCell(cell));
+  cell.addEventListener("dblclick", () => { setSelectedCell(cell); openEditMode({ keepContent: true }); });
+  cell.addEventListener("focus", () => setSelectedCell(cell));
+  renderReadMode();
+}
 
-    const columnCells = Array.from(row.children).reduce((cells, child) => {
-      if (!child.classList.contains("records-list__cell")) {
-        return cells;
-      }
-      if (child.classList.contains("records-list__timing-group")) {
-        const timingFields = child.querySelector(".records-list__timing-fields");
-        if (timingFields) {
-          Array.from(timingFields.children).forEach((timingCell) => {
-            if (timingCell.classList.contains("records-list__cell")) {
-              cells.push(timingCell);
-            }
-          });
-          return cells;
-        }
-      }
-      cells.push(child);
-      return cells;
-    }, []);
+// Celda de duración (solo lectura)
+function attachDuracionCell(cell, row) {
+  cell.classList.add("text-cell", "duracion-cell");
+  cell.tabIndex = 0;
 
-    const timingFields = row.querySelector(".records-list__timing-fields");
-    const columnCell = timingFields && timingFields.contains(target)
-      ? Array.from(timingFields.children).find(
-          (cell) => cell.classList.contains("records-list__cell") && cell.contains(target)
-        )
-      : Array.from(row.children).find(
-          (cell) => cell.classList.contains("records-list__cell") && cell.contains(target)
-        );
-
-    if (!columnCell) {
-      return null;
-    }
-
-    const cellIndex = columnCells.indexOf(columnCell);
-    return cellIndex === -1 ? null : cellIndex;
+  const renderReadMode = () => {
+    cell.classList.remove("is-editing");
+    const value = row.duracion || "";
+    cell.textContent = value;
+    cell.classList.toggle("has-error", !!value && !isValidTCFormat(value));
   };
 
-  const updateActiveHeaderFromTarget = (target) => {
-    const index = getHeaderIndexForTarget(target);
-    if (index === null) {
-      clearActiveHeaderCell();
-      return;
-    }
-    setActiveHeaderCell(index);
+  const openEditMode = ({ replaceWith, keepContent = false } = {}) => {
+    if (IS_VIEWER_MODE) { if (editingCell?.input) editingCell.input.focus(); return; }
+    if (isEditingThisCell()) { if (editingCell?.input) editingCell.input.focus(); return; }
+    setCopyRange(null);
+    cell.classList.add("is-editing");
+    cell.textContent = "";
+    const input = document.createElement("input");
+    input.className = "editor-overlay";
+    input.type = "text";
+    input.value = keepContent ? (row.duracion || "") : (replaceWith !== undefined ? replaceWith : (row.duracion || ""));
+    cell.appendChild(input);
+    input.focus();
+    if (replaceWith !== undefined) { input.selectionStart = input.selectionEnd = input.value.length; }
+    else { input.select(); }
+
+    const commit = () => {
+      if (!isEditingThisCell()) return;
+      setCellValue(cell, input.value, { type: "edit" });
+      editingCell = null;
+      renderReadMode();
+    };
+    const cancel = () => {
+      if (!isEditingThisCell()) return;
+      editingCell = null;
+      renderReadMode();
+    };
+
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); commit(); }
+      else if (e.key === "Escape") { e.preventDefault(); cancel(); }
+      else if (e.key === "Tab") { commit(); }
+    });
+
+    editingCell = { cell, input, commit, cancel, type: "text", columnKey: "duracion" };
   };
 
-  const resolveHeaderSourceFromFocus = (target) => {
-    if (!(target instanceof Element)) {
-      return null;
-    }
+  const isEditingThisCell = () => editingCell?.cell === cell;
 
-    if (target === overlayInput && activeEditorTarget) {
-      return activeEditorTarget;
-    }
+  renderReadMode();
 
-    if (activeTimeOverlay && activeTimeOverlay.contains(target)) {
-      return activeTimeCell;
+  cell.addEventListener("click", () => setSelectedCell(cell));
+  cell.addEventListener("focus", () => setSelectedCell(cell));
+  cell.addEventListener("dblclick", () => { setSelectedCell(cell); openEditMode({ keepContent: true }); });
+  cell.addEventListener("keydown", (e) => {
+    if (isEditingThisCell()) return;
+    if (e.key === "Enter" || e.key === "F2") { e.preventDefault(); openEditMode({ keepContent: true }); }
+    else if (e.key === "Delete" || e.key === "Backspace") {
+      // handled by grid keydown
+    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+      openEditMode({ replaceWith: e.key });
     }
-
-    return target.closest(
-      ".records-list__field, [data-role=\"time-cell\"], .records-list__time-display"
-    );
-  };
-
-  const isEditableFocusWithinRecords = (target) => {
-    if (!(target instanceof Element)) {
-      return false;
-    }
-
-    if (target === overlayInput && activeEditorTarget) {
-      return true;
-    }
-
-    if (activeTimeOverlay && activeTimeOverlay.contains(target)) {
-      return true;
-    }
-
-    const editableTarget = target.closest(
-      ".records-list__field, [data-role=\"time-cell\"], .records-list__time-display"
-    );
-    return Boolean(editableTarget && recordsViewport.contains(editableTarget));
-  };
-  const updateBackButtonState = () => {
-    if (backButton) {
-      backButton.disabled = !lastDeleteSnapshot;
-    }
-  };
-  
-  const createEmptyRecord = () => ({
-    id: nextRecordId++,
-    checked: false,
-    validationTouched: false,
-    title: "",
-    author: "",
-    performer: "",
-    modality: "",
-    musicType: "",
-    tcIn: TIME_PLACEHOLDER,
-    duration: "",
-    tcOut: TIME_PLACEHOLDER,
-    libraryCode: "",
-    libraryName: "",
   });
 
-  const getSelectionLength = (input) => {
-    if (!(input instanceof HTMLInputElement)) {
-      return 0;
-    }
+  cell.renderReadMode = renderReadMode;
+  cell.openEditMode = openEditMode;
+}
 
-    const selectionStart = input.selectionStart ?? input.value.length;
-    const selectionEnd = input.selectionEnd ?? input.value.length;
-    return Math.max(0, selectionEnd - selectionStart);
+function attachTitleCell(cell, row) {
+  cell.classList.add("title-cell");
+  let isEditing = false;
+
+  const renderReadMode = () => {
+    isEditing = false;
+    cell.classList.remove("is-editing");
+    cell.textContent = "";
+    const text = document.createElement("span");
+    text.className = "title-cell__text";
+    text.textContent = row.titulo || "";
+    text.title = row.titulo || "";
+    cell.appendChild(text);
   };
 
-  const updateOverlayHintVisibility = () => {
-    if (!activeEditorTarget) {
-      overlayHint.hidden = true;
-      return;
-    }
+  const openEditMode = ({ replaceWith, keepContent = false } = {}) => {
+    if (IS_VIEWER_MODE) { if (editingCell?.input) editingCell.input.focus(); return; }
+    if (isEditing) { if (editingCell?.input) editingCell.input.focus(); return; }
+    setCopyRange(null);
+    isEditing = true;
+    cell.classList.add("is-editing");
+    const overlayLayer = getTitleOverlayLayer();
+    if (!overlayLayer) return;
 
-    const shouldShowHint = overlayOverflowAttempted && overlayInput.value.length >= maxLength;
-    overlayHint.hidden = !shouldShowHint;
-  };
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "title-cell__input editor-overlay is-editing";
+    input.maxLength = 100;
+    input.value = keepContent ? (row.titulo || "") : (replaceWith !== undefined ? replaceWith : (row.titulo || ""));
+    const originalValue = row.titulo || "";
+    let cancelled = false;
 
-  const syncOverlayValidation = () => {
-    if (!activeEditorTarget) {
-      return;
-    }
-    const isErrorState = overlayOverflowAttempted && overlayInput.value.length >= maxLength;
-    overlayInput.classList.toggle("is-error", isErrorState);
-    activeEditorTarget.classList.toggle("is-error", isErrorState);
-    updateOverlayHintVisibility();
-  };
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
 
-  const updateOverlayPosition = () => {
-    if (!activeEditorTarget || !textMeasureContext) {
-      return;
-    }
-
-    const inputRect = activeEditorTarget.getBoundingClientRect();
-    const computedStyle = window.getComputedStyle(activeEditorTarget);
-    textMeasureContext.font = computedStyle.font;
-
-    const text = overlayInput.value || activeEditorTarget.placeholder || "";
-    const measuredWidth = textMeasureContext.measureText(text).width;
-    const horizontalPadding =
-      parseFloat(computedStyle.paddingLeft) +
-      parseFloat(computedStyle.paddingRight) +
-      parseFloat(computedStyle.borderLeftWidth) +
-      parseFloat(computedStyle.borderRightWidth) +
-      24;
-
-    const baseWidth = inputRect.width;
-    const idealWidth = measuredWidth + horizontalPadding;
-    const maxWidth = Math.max(baseWidth, window.innerWidth - 16);
-    const width = Math.min(Math.max(idealWidth, baseWidth), maxWidth);
-    const left = Math.min(Math.max(8, inputRect.left), window.innerWidth - 8 - width);
-
-    overlayInput.style.width = `${width}px`;
-    overlayInput.style.left = `${left}px`;
-    overlayInput.style.top = `${inputRect.top}px`;
-    overlayInput.style.height = `${inputRect.height}px`;
-
-    overlayHint.style.left = `${left}px`;
-    overlayHint.style.top = `${inputRect.bottom + 4}px`;
-  };
-
-  let activeTimeCell = null;
-  let activeTimeOverlay = null;
-  let timeOverlayListeners = null;
-  let timeState = {
-    hh: 0,
-    mm: 0,
-    ss: 0,
-    activeUnit: "hh",
-    digitBuffer: "",
-  };
-  let prevValueString = "";
-
-  const updateTimeOverlayPosition = () => {
-    if (!activeTimeCell || !activeTimeOverlay) {
-      return;
-    }
-
-    const rect = activeTimeCell.getBoundingClientRect();
-    const panel = activeTimeOverlay.querySelector(".time-panel");
-    if (!panel) {
-      return;
-    }
-    const panelWidth = panel.getBoundingClientRect().width || rect.width;
-    const anchorCenterX = rect.left + rect.width / 2;
-    let left = Math.round(anchorCenterX - panelWidth / 2);
-    const margin = 8;
-    left = Math.max(margin, Math.min(left, window.innerWidth - panelWidth - margin));
-    activeTimeOverlay.style.top = `${Math.round(rect.top)}px`;
-    activeTimeOverlay.style.left = `${left}px`;
-  };
-
-  const removeTimeOverlayListeners = () => {
-    if (!timeOverlayListeners) {
-      return;
-    }
-
-    const {
-      handleKeydown,
-      handlePointerDown,
-      handleResize,
-      handleScroll,
-      handleSpinnerClick,
-    } = timeOverlayListeners;
-    document.removeEventListener("keydown", handleKeydown);
-    document.removeEventListener("mousedown", handlePointerDown);
-    window.removeEventListener("resize", handleResize);
-    recordsViewport.removeEventListener("scroll", handleScroll);
-    if (activeTimeOverlay) {
-      const spinner = activeTimeOverlay.querySelector(".time-spinner");
-      spinner?.removeEventListener("click", handleSpinnerClick);
-    }
-    timeOverlayListeners = null;
-  };
-
-  const closeTimeOverlay = () => {
-    if (!activeTimeOverlay) {
-      return;
-    }
-
-    removeTimeOverlayListeners();
-    activeTimeOverlay.remove();
-    activeTimeOverlay = null;
-    activeTimeCell = null;
-    timeState = {
-      hh: 0,
-      mm: 0,
-      ss: 0,
-      activeUnit: "hh",
-      digitBuffer: "",
+    const updateOverlayPosition = () => {
+      const gridRoot = overlayLayer.parentElement;
+      if (!gridRoot) return;
+      const cellRect = cell.getBoundingClientRect();
+      const rootRect = gridRoot.getBoundingClientRect();
+      const styles = window.getComputedStyle(cell);
+      const horizontalPadding = Number.parseFloat(styles.paddingLeft || "0") +
+        Number.parseFloat(styles.paddingRight || "0") + 24;
+      let measuredWidth = cellRect.width;
+      if (ctx) {
+        ctx.font = `${window.getComputedStyle(input).fontWeight} ${window.getComputedStyle(input).fontSize} ${window.getComputedStyle(input).fontFamily}`;
+        measuredWidth = ctx.measureText(input.value || " ").width + horizontalPadding;
+      }
+      const maxWidth = Math.max(cellRect.width, rootRect.right - cellRect.left - 2);
+      const width = Math.min(maxWidth, Math.max(cellRect.width, measuredWidth));
+      input.style.left = `${cellRect.left - rootRect.left}px`;
+      input.style.top = `${cellRect.top - rootRect.top}px`;
+      input.style.width = `${width}px`;
+      input.style.height = `${cellRect.height}px`;
     };
-    prevValueString = "";
-    if (
-      !recordsViewport.contains(document.activeElement) &&
-      document.activeElement !== overlayInput
-    ) {
-      clearActiveHeaderCell();
-    }
+
+    const cleanupEditingState = () => {
+      if (editingCell?.cell === cell) editingCell = null;
+      syncFillHandlePosition();
+    };
+
+    const commit = () => {
+      if (cancelled) return;
+      const nextValue = (input.value || "").slice(0, 100);
+      setCellValue(cell, nextValue, { type: "edit", groupKey: `${cell.dataset.blockIndex}:${cell.dataset.rowIndex}:${cell.dataset.columnKey}` });
+      input.remove();
+      window.removeEventListener("resize", updateOverlayPosition);
+      cleanupEditingState();
+      renderReadMode();
+    };
+
+    const cancel = () => {
+      cancelled = true;
+      row.titulo = originalValue;
+      input.remove();
+      window.removeEventListener("resize", updateOverlayPosition);
+      cleanupEditingState();
+      renderReadMode();
+    };
+
+    input.addEventListener("input", () => { if (input.value.length > 100) input.value = input.value.slice(0, 100); });
+    input.addEventListener("blur", commit, { once: true });
+
+    editingCell = { cell, input, commit: () => input.blur(), cancel };
+    syncFillHandlePosition();
+    overlayLayer.appendChild(input);
+    window.addEventListener("resize", updateOverlayPosition);
+    updateOverlayPosition();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        input.focus({ preventScroll: true });
+        const end = input.value.length;
+        input.setSelectionRange(end, end);
+      });
+    });
   };
 
-  const isTimeString = (value) => /^\d{2}:\d{2}:\d{2}$/.test(value);
-  const isValidTimeFormat = (value) => {
-    if (!isTimeString(value)) {
+  cell.openEditMode = openEditMode;
+  cell.addEventListener("click", () => setSelectedCell(cell));
+  cell.addEventListener("dblclick", () => { setSelectedCell(cell); openEditMode({ keepContent: true }); });
+  cell.addEventListener("focus", () => setSelectedCell(cell));
+  renderReadMode();
+}
+
+function attachSelectCell(cell, row, columnKey) {
+  cell.classList.add("genre-cell");
+  cell.tabIndex = 0;
+  const column = getColumnByKey(columnKey);
+  const render = () => { cell.textContent = row[columnKey] || ""; };
+
+  const openEditMode = ({ keepContent = false, replaceWith } = {}) => {
+    if (IS_VIEWER_MODE) return;
+    if (editingCell?.cell === cell) return;
+    if (!column) return;
+    setCopyRange(null);
+    const menu = ensureGenreMenuElement();
+    cell.classList.add("is-editing");
+    const currentValue = keepContent ? row[columnKey] || "" : (replaceWith ?? row[columnKey] ?? "");
+    let highlightedIndex = Math.max(0, column.options.findIndex((o) => o === currentValue));
+    const originalValue = row[columnKey] || "";
+    let cancelled = false;
+
+    const commit = () => {
+      if (!cancelled) setCellValue(cell, row[columnKey], { type: "edit", groupKey: `${cell.dataset.blockIndex}:${cell.dataset.rowIndex}:${cell.dataset.columnKey}` });
+      cleanup();
+    };
+    const cancel = () => { cancelled = true; row[columnKey] = originalValue; cleanup(); };
+
+    const renderOptions = () => {
+      menu.innerHTML = "";
+      column.options.forEach((option, index) => {
+        const optionEl = document.createElement("button");
+        optionEl.type = "button";
+        optionEl.className = "genre-dropdown-menu__option";
+        if (option === currentValue) optionEl.classList.add("is-selected");
+        if (index === highlightedIndex) optionEl.classList.add("is-highlighted");
+        optionEl.textContent = option || "\u00a0";
+        optionEl.setAttribute("role", "option");
+        optionEl.setAttribute("aria-selected", option === currentValue ? "true" : "false");
+        optionEl.addEventListener("mousedown", (e) => e.preventDefault());
+        optionEl.addEventListener("click", () => { row[columnKey] = option; commit(); });
+        menu.appendChild(optionEl);
+      });
+    };
+
+    const positionMenu = () => {
+      const cellRect = cell.getBoundingClientRect();
+      menu.style.left = `${cellRect.left}px`;
+      menu.style.top = `${cellRect.bottom - 1}px`;
+      menu.style.width = `${Math.max(0, cellRect.width - 2)}px`;
+      menu.style.maxWidth = `${Math.max(0, cellRect.width - 2)}px`;
+      menu.classList.add("open");
+    };
+
+    const cleanup = () => {
+      if (editingCell?.cell === cell) editingCell = null;
+      document.removeEventListener("mousedown", handlePointerDownOutside);
+      menu.classList.remove("open");
+      window.removeEventListener("resize", positionMenu);
+      cell.classList.remove("is-editing");
+      render();
+      syncFillHandlePosition();
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "ArrowDown") { event.preventDefault(); highlightedIndex = Math.min(column.options.length - 1, highlightedIndex + 1); renderOptions(); return true; }
+      if (event.key === "ArrowUp") { event.preventDefault(); highlightedIndex = Math.max(0, highlightedIndex - 1); renderOptions(); return true; }
+      if (event.key === "Enter") {
+        event.preventDefault(); row[columnKey] = column.options[highlightedIndex] ?? ""; commit();
+        const nextSelection = moveSelectionDownWithinBlock(cell); focusCellWithoutEditing(nextSelection.cell); return true;
+      }
+      if (event.key === "Escape") { event.preventDefault(); cancel(); focusCellWithoutEditing(cell); return true; }
       return false;
-    }
-    const [hours, minutes, seconds] = value.split(":").map((part) => Number.parseInt(part, 10));
-    if ([hours, minutes, seconds].some((part) => Number.isNaN(part))) {
-      return false;
-    }
-    return minutes >= 0 && minutes <= 59 && seconds >= 0 && seconds <= 59;
-  };
-  const getTimeDisplayValue = (value) => (value ? String(value) : TIME_PLACEHOLDER);
+    };
 
-  const parseTimeToSeconds = (value) => {
-    if (!isTimeString(value)) {
-      return null;
-    }
-    const [hours, minutes, seconds] = value.split(":").map((part) => Number.parseInt(part, 10));
-    if ([hours, minutes, seconds].some((part) => Number.isNaN(part))) {
-      return null;
-    }
-    return hours * 3600 + minutes * 60 + seconds;
+    const handlePointerDownOutside = (event) => {
+      if (!menu.contains(event.target) && !cell.contains(event.target)) commit();
+    };
+
+    renderOptions(); positionMenu();
+    window.addEventListener("resize", positionMenu);
+    document.addEventListener("mousedown", handlePointerDownOutside);
+    editingCell = { cell, input: menu, type: "select", commit, cancel, handleKeyDown };
+    syncFillHandlePosition();
   };
 
-    const formatSecondsAsTime = (totalSeconds) => {
-    const safeSeconds = Math.max(0, totalSeconds);
-    const hours = Math.floor(safeSeconds / 3600);
-    const minutes = Math.floor((safeSeconds % 3600) / 60);
-    const seconds = safeSeconds % 60;
-    return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
-  };
+  cell.openEditMode = openEditMode;
+  cell.addEventListener("click", () => {
+    const wasSelected = selectedCell === cell;
+    setSelectedCell(cell);
+    if (wasSelected) openEditMode({ keepContent: true });
+  });
+  cell.addEventListener("focus", () => setSelectedCell(cell));
+  render();
+}
 
-  const calculateDuration = (tcIn, tcOut) => {
-    const inSeconds = parseTimeToSeconds(tcIn);
-    const outSeconds = parseTimeToSeconds(tcOut);
-    if (inSeconds === null || outSeconds === null) {
-      return "";
+// ── Teclado ───────────────────────────────────────────────────
+
+function handleGridEnterKey(event) {
+  const isArrowNavigationKey = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key);
+  const isPrintableKey = event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
+  const hasSelectedCell = !!selectedCell && !!getCellMeta(selectedCell);
+  const keyLower = event.key.toLowerCase();
+  const isUndoShortcut = (event.ctrlKey || event.metaKey) && keyLower === "z" && !event.shiftKey;
+  const isRedoShortcut =
+    ((event.ctrlKey || event.metaKey) && keyLower === "z" && event.shiftKey) ||
+    (event.ctrlKey && !event.metaKey && keyLower === "y");
+
+  if (isUndoShortcut || isRedoShortcut) {
+    if (IS_VIEWER_MODE) return;
+    const editingNative = isEditingElement(document.activeElement) && !document.activeElement?.classList?.contains("editor-overlay");
+    if (editingNative) return;
+    event.preventDefault();
+    if (editingCell) editingCell.cancel?.();
+    if (isUndoShortcut) undoLastAction(); else redoLastAction();
+    return;
+  }
+
+  if (editingCell) {
+    if (editingCell.type === "select" && typeof editingCell.handleKeyDown === "function") {
+      const handled = editingCell.handleKeyDown(event);
+      if (handled) return;
     }
-    return formatSecondsAsTime(outSeconds - inSeconds);
-  };
-
-  const buildExportFilename = () => {
-    const normalizedProgramTitle = (programInput?.value || "")
-      .trim()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^\w\s-]/g, "")
-      .replace(/\s+/g, "_")
-      .replace(/_+/g, "_");
-
-    if (normalizedProgramTitle) {
-      return `Cue-Sheet_${normalizedProgramTitle}.xlsm`;
+    if (event.key === "Tab") {
+      event.preventDefault();
+      const currentCell = editingCell.cell;
+      editingCell.commit();
+      const nextCell = getNextTabCell(currentCell, event.shiftKey ? -1 : 1);
+      if (nextCell) { setSelectedCell(nextCell); focusCellWithoutEditing(nextCell); }
+      return;
     }
-
-    const now = new Date();
-    const pad = (value) => String(value).padStart(2, "0");
-    const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-    const time = `${pad(now.getHours())}${pad(now.getMinutes())}`;
-      return `Cue-Sheet_${date}_${time}.xlsm`;
-  };
-
-  const resolveDurationForExport = (tcIn, tcOut) => {
-    const inSeconds = parseTimeToSeconds(tcIn);
-    const outSeconds = parseTimeToSeconds(tcOut);
-    if (inSeconds === null || outSeconds === null) {
-      return "";
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const currentCell = editingCell.cell;
+      editingCell.commit();
+      const nextSelection = moveSelectionDownWithinBlock(currentCell);
+      focusCellWithoutEditing(nextSelection.cell);
+      return;
     }
-    if (outSeconds < inSeconds) {
-      return "";
+    if (event.key === "Escape") { event.preventDefault(); editingCell.cancel(); focusCellWithoutEditing(selectedCell); return; }
+    if (isArrowNavigationKey && editingCell.type !== "select") {
+      event.preventDefault();
+      const currentCell = editingCell.cell;
+      editingCell.commit();
+      const nextCell = getAdjacentCellByArrow(currentCell, event.key);
+      if (nextCell) { setSelectedCell(nextCell); focusCellWithoutEditing(nextCell); }
+      return;
     }
-    return formatSecondsAsTime(outSeconds - inSeconds);
-  };
+    return;
+  }
 
-  const getRowEditableControl = (row, fieldKey) => {
-    if (!row) {
-      return null;
+  if (!hasSelectedCell) {
+    if (event.key === "Escape" && copyRange) { setCopyRange(null); event.preventDefault(); }
+    return;
+  }
+
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
+    if (isEditingElement(document.activeElement)) return;
+    const nextCopySelection = getCopySelection();
+    if (!nextCopySelection) return;
+    setCopyRange({ col: nextCopySelection.col, r1: nextCopySelection.r1, r2: nextCopySelection.r2 }, nextCopySelection.blockIndex);
+    copyTextToClipboard(buildCopyTextFromSelection(nextCopySelection));
+    event.preventDefault();
+    return;
+  }
+
+  if (event.key === "Escape") {
+    let handledEscape = false;
+    if (copyRange) { setCopyRange(null); handledEscape = true; }
+    if (selectedCell) { shiftSelectAnchor = null; setSelectedCell(null); dragSelection = null; clearDragSelectionPreview(); handledEscape = true; }
+    if (handledEscape) event.preventDefault();
+    return;
+  }
+
+  if (event.key === "Tab") {
+    event.preventDefault();
+    const nextCell = getNextTabCell(selectedCell, event.shiftKey ? -1 : 1);
+    if (!nextCell) return;
+    setSelectedCell(nextCell);
+    focusCellWithoutEditing(nextCell);
+    return;
+  }
+
+  if (isArrowNavigationKey) {
+    if (isEditingElement(document.activeElement)) return;
+    if (event.shiftKey && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+      const meta = getCellMeta(selectedCell);
+      if (!meta) return;
+      event.preventDefault();
+      const block = blocks[meta.blockIndex];
+      if (!block) return;
+      const orderedRows = getOrderedRowsForMonth(block);
+      if (!orderedRows.length) return;
+      if (
+        !shiftSelectAnchor ||
+        shiftSelectAnchor.blockIndex !== meta.blockIndex ||
+        shiftSelectAnchor.columnKey !== meta.columnKey ||
+        shiftSelectAnchor.anchorSourceIndex !== meta.rowIndex
+      ) {
+        const anchorVisIdx = orderedRows.findIndex((item) => item.sourceIndex === meta.rowIndex);
+        if (anchorVisIdx < 0) return;
+        shiftSelectAnchor = {
+          blockIndex: meta.blockIndex,
+          columnKey: meta.columnKey,
+          anchorSourceIndex: meta.rowIndex,
+          anchorVisibleIndex: anchorVisIdx,
+          activeVisibleIndex: anchorVisIdx,
+        };
+      }
+      const delta = event.key === "ArrowDown" ? 1 : -1;
+      shiftSelectAnchor.activeVisibleIndex = Math.max(0, Math.min(orderedRows.length - 1, shiftSelectAnchor.activeVisibleIndex + delta));
+      const minVis = Math.min(shiftSelectAnchor.anchorVisibleIndex, shiftSelectAnchor.activeVisibleIndex);
+      const maxVis = Math.max(shiftSelectAnchor.anchorVisibleIndex, shiftSelectAnchor.activeVisibleIndex);
+      const selectedSourceIndices = orderedRows.slice(minVis, maxVis + 1).map((item) => item.sourceIndex);
+      dragSelection = {
+        blockIndex: meta.blockIndex,
+        col: meta.columnKey,
+        r1: Math.min(...selectedSourceIndices),
+        r2: Math.max(...selectedSourceIndices),
+      };
+      renderDragSelectionPreview(dragSelection);
+      return;
     }
-    if (fieldKey === "tcIn" || fieldKey === "tcOut") {
-      return row.querySelector(`[data-role="time-cell"][data-field="${fieldKey}"]`);
+    shiftSelectAnchor = null;
+    const nextCell = getAdjacentCellByArrow(selectedCell, event.key);
+    if (!nextCell) return;
+    event.preventDefault();
+    setSelectedCell(nextCell);
+    focusCellWithoutEditing(nextCell);
+    return;
+  }
+
+  if (event.key === "Enter") {
+    event.preventDefault();
+    if (selectedCell.dataset.columnKey === "genre" && typeof selectedCell.openEditMode === "function") {
+      selectedCell.openEditMode({ keepContent: true }); return;
     }
-    return row.querySelector(`[data-field="${fieldKey}"]`);
-  };
+    const nextSelection = moveSelectionDownWithinBlock(selectedCell);
+    focusCellWithoutEditing(nextSelection.cell);
+    return;
+  }
 
-  const getNextRowEditableControl = ({ sourceElement, direction }) => {
-    const row = sourceElement?.closest(".records-list__row");
-    if (!row) {
-      return null;
+  if (event.key === "F2" && typeof selectedCell.openEditMode === "function") {
+    event.preventDefault();
+    selectedCell.openEditMode({ keepContent: true });
+    return;
+  }
+
+  if ((event.ctrlKey || event.metaKey) && (event.key === "Delete" || event.key === "Backspace")) {
+    if (IS_VIEWER_MODE) return;
+    if (isEditingElement(document.activeElement)) return;
+    const target = getDeleteTarget();
+    if (!target) return;
+    event.preventDefault();
+    openDeleteConfirmModal(target, selectedCell);
+    return;
+  }
+
+  if (isPrintableKey && typeof selectedCell.openEditMode === "function") {
+    if (IS_VIEWER_MODE) return;
+    const column = getColumnByKey(selectedCell.dataset.columnKey);
+    if (column?.cellType === "select") {
+      event.preventDefault();
+      const now = Date.now();
+      const normalizedKey = event.key.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
+      genreTypeBuffer = now - genreTypeBufferTimestamp <= GENRE_TYPE_BUFFER_TIMEOUT_MS
+        ? `${genreTypeBuffer}${normalizedKey}`
+        : normalizedKey;
+      genreTypeBufferTimestamp = now;
+      const matchedOption = column.options?.find((option) => {
+        const normalizedOption = option.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
+        return normalizedOption.startsWith(genreTypeBuffer);
+      });
+      if (matchedOption) {
+        setCellValue(selectedCell, matchedOption, { type: "edit", groupKey: `${selectedCell.dataset.blockIndex}:${selectedCell.dataset.rowIndex}:${selectedCell.dataset.columnKey}` });
+      }
+      return;
     }
+    event.preventDefault();
+    selectedCell.openEditMode({ replaceWith: event.key });
+    return;
+  }
 
-    const sourceField = sourceElement.dataset.field;
-    if (!sourceField) {
-      return null;
-    }
+  if ((event.key === "Delete" || event.key === "Backspace") && selectedCell) {
+    if (IS_VIEWER_MODE) return;
+    const selectedRowIndex = Number.parseInt(selectedCell.dataset.rowIndex, 10);
+    const hasVerticalRangeSelection =
+      !!dragSelection &&
+      dragSelection.blockIndex === Number.parseInt(selectedCell.dataset.blockIndex, 10) &&
+      dragSelection.col === selectedCell.dataset.columnKey &&
+      dragSelection.r2 > dragSelection.r1 &&
+      selectedRowIndex >= dragSelection.r1 &&
+      selectedRowIndex <= dragSelection.r2;
 
-    const currentIndex = ROW_TAB_SEQUENCE.indexOf(sourceField);
-    if (currentIndex === -1) {
-      return null;
-    }
-
-    const nextField = ROW_TAB_SEQUENCE[currentIndex + direction];
-    if (!nextField) {
-      return null;
-    }
-
-    return getRowEditableControl(row, nextField);
-  };
-
-  const openTimeOverlay = (cell) => {
-    if (!cell || !timeOverlayRoot) {
+    if (hasVerticalRangeSelection && !editingCell && !isEditingElement(document.activeElement)) {
+      withHistoryAction("clear", { groupKey: `clear:${dragSelection.blockIndex}:${dragSelection.col}` }, () => {
+        for (let rowIndex = dragSelection.r1; rowIndex <= dragSelection.r2; rowIndex++) {
+          const targetCell = document.querySelector(
+            `[data-block-index="${dragSelection.blockIndex}"][data-row-index="${rowIndex}"][data-column-key="${dragSelection.col}"]`
+          );
+          if (targetCell) setCellValue(targetCell, "", { type: "clear", groupKey: `clear:${dragSelection.blockIndex}:${dragSelection.col}` });
+        }
+      });
+      renderRows();
+      event.preventDefault();
       return;
     }
 
-    if (activeTimeCell === cell) {
+    const rowData = getRowByCell(selectedCell);
+    if (!rowData) return;
+    event.preventDefault();
+    withHistoryAction("clear", { groupKey: `clear:${selectedCell.dataset.blockIndex}:${selectedCell.dataset.rowIndex}:${selectedCell.dataset.columnKey}` }, () => {
+      setCellValue(selectedCell, "", { type: "clear", groupKey: `clear:${selectedCell.dataset.blockIndex}:${selectedCell.dataset.rowIndex}:${selectedCell.dataset.columnKey}` });
+    });
+    renderRows();
+    focusCellEditor(selectedCell);
+    return;
+  }
+
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v") return;
+}
+
+// ── Paste ─────────────────────────────────────────────────────
+
+function handleGridPaste(event) {
+  if (IS_VIEWER_MODE) return;
+  if (!selectedCell) return;
+  if (editingCell) {
+    if (editingCell.type === "select") {
+      editingCell.cancel?.();
+    } else {
+      return;
+    }
+  }
+
+  const pastedText = event.clipboardData?.getData("text/plain") || "";
+  const clipboardLines = pastedText
+    .split(/\r?\n/)
+    .filter((line, index, all) => line !== "" || index < all.length - 1);
+  if (!clipboardLines.length) return;
+
+  event.preventDefault();
+
+  const selectedMeta = getCellMeta(selectedCell);
+  if (!selectedMeta) return;
+  const block = blocks[selectedMeta.blockIndex];
+  if (!block?.rows?.length) return;
+
+  const orderedRows = getOrderedRowsForMonth(block);
+  const selectedSourceIndex = selectedMeta.rowIndex;
+  const isInsideDragSelection =
+    !!dragSelection &&
+    dragSelection.blockIndex === selectedMeta.blockIndex &&
+    dragSelection.col === selectedMeta.columnKey &&
+    dragSelection.r2 > dragSelection.r1 &&
+    selectedSourceIndex >= dragSelection.r1 &&
+    selectedSourceIndex <= dragSelection.r2;
+
+  setCopyRange(null);
+  withHistoryAction("paste", { groupKey: "paste" }, () => {
+    if (isInsideDragSelection && !isEditingElement(document.activeElement)) {
+      const visibleInRange = orderedRows.filter(
+        (item) => item.sourceIndex >= dragSelection.r1 && item.sourceIndex <= dragSelection.r2
+      );
+      const rangeSize = visibleInRange.length;
+      const pasteValues = resolveVerticalPasteValues({ rangeSize, clipboardText: pastedText });
+      if (!pasteValues.length) return;
+      let targetRowKeys = visibleInRange.map((item) => item.row?.rowKey).filter(Boolean);
+      const missingRows = Math.max(0, pasteValues.length - rangeSize);
+      const rowsToInsert = Math.min(missingRows, MAX_AUTO_INSERT);
+      if (rowsToInsert > 0) {
+        const lastSourceIndex = Math.max(...visibleInRange.map((i) => i.sourceIndex));
+        insertRows(dragSelection.blockIndex, lastSourceIndex + 1, rowsToInsert, { historyType: "paste" });
+        const updatedBlock = blocks[dragSelection.blockIndex];
+        const newRows = updatedBlock?.rows?.slice(lastSourceIndex + 1, lastSourceIndex + 1 + rowsToInsert) || [];
+        targetRowKeys = targetRowKeys.concat(newRows.map((r) => r?.rowKey).filter(Boolean));
+        if (missingRows > MAX_AUTO_INSERT) showGridToast(`Se han creado ${MAX_AUTO_INSERT} filas. El resto del pegado se ha recortado.`);
+      }
+      const maxPaste = Math.min(pasteValues.length, targetRowKeys.length);
+      for (let i = 0; i < maxPaste; i++) {
+        const meta = getCellMetaFromRowKey(targetRowKeys[i], dragSelection.col);
+        const cell = meta ? getCellByMeta(meta) : null;
+        if (cell) setCellValue(cell, pasteValues[i], { type: "paste", groupKey: "paste" });
+      }
+      renderRows();
       return;
     }
 
-    closeTimeOverlay();
-    activeTimeCell = cell;
-    updateActiveHeaderFromTarget(cell);
-    const rawText = cell.textContent?.trim() || "";
-    prevValueString =
-      cell.dataset.timeValue || (isTimeString(rawText) ? rawText : "");
+    const anchorRowId = selectedCell?.dataset?.rowId || null;
+    let anchorVisIdx = orderedRows.findIndex((item) => item.row?.rowKey === anchorRowId);
+    if (anchorVisIdx < 0) anchorVisIdx = 0;
+    const pasteCount = Math.min(clipboardLines.length, MAX_AUTO_INSERT);
+    const anchorIsPlaceholder = !!orderedRows[anchorVisIdx]?.row?._autoPlaceholder;
+    let targetRowKeys = anchorIsPlaceholder
+      ? []
+      : orderedRows
+          .slice(anchorVisIdx, anchorVisIdx + pasteCount)
+          .filter((item) => !item.row._autoPlaceholder)
+          .map((item) => item.row?.rowKey)
+          .filter(Boolean);
 
-    const overlay = document.createElement("div");
-    overlay.className = "time-overlay";
-    overlay.innerHTML = `
-      <div class="time-panel">
-        <div class="time-spinner" role="dialog" aria-label="Editor de tiempo">
-          <div class="time-col" data-unit="hh">
-            <button class="time-btn time-btn--up" type="button" aria-label="Subir horas"></button>
-            <div class="time-val" data-unit="hh">00</div>
-            <button class="time-btn time-btn--down" type="button" aria-label="Bajar horas"></button>
-            <div class="time-lab">HH</div>
+    if (pasteCount > targetRowKeys.length) {
+      const missing = pasteCount - targetRowKeys.length;
+      const lastVisSourceIndex = orderedRows.length > 0 ? Math.max(...orderedRows.map((i) => i.sourceIndex)) : block.rows.length - 1;
+      insertRows(selectedMeta.blockIndex, lastVisSourceIndex + 1, missing, { historyType: "paste" });
+      const updatedBlock = blocks[selectedMeta.blockIndex];
+      const newRows = updatedBlock?.rows?.slice(lastVisSourceIndex + 1, lastVisSourceIndex + 1 + missing) || [];
+      targetRowKeys = targetRowKeys.concat(newRows.map((r) => r?.rowKey).filter(Boolean));
+      if (clipboardLines.length > MAX_AUTO_INSERT) showGridToast(`Se han creado ${MAX_AUTO_INSERT} filas. El resto del pegado se ha recortado.`);
+    }
+
+    const maxPaste = clipboardLines.length > 1
+      ? Math.min(clipboardLines.length, targetRowKeys.length)
+      : 1;
+    for (let i = 0; i < maxPaste; i++) {
+      const meta = getCellMetaFromRowKey(targetRowKeys[i], selectedMeta.columnKey);
+      const cell = meta ? getCellByMeta(meta) : null;
+      if (cell) setCellValue(cell, clipboardLines[i], { type: "paste", groupKey: "paste" });
+    }
+
+    renderRows();
+  });
+}
+
+// ── Buscador (no-op en esta versión) ─────────────────────────
+
+function attachSearchControls(root) {
+  const wrapper = root.querySelector(".search-box-wrapper");
+  const input   = root.querySelector(".search-box-input");
+  const clearBtn = root.querySelector(".search-box-clear");
+  if (!input) return;
+  // Búsqueda pendiente de implementar
+  clearBtn?.addEventListener("click", () => {
+    input.value = "";
+    wrapper?.classList.remove("has-value");
+    input.focus();
+  });
+  input.addEventListener("input", () => {
+    wrapper?.classList.toggle("has-value", !!input.value);
+  });
+}
+
+// ── Export (stub — se implementa en Paso 7) ───────────────────
+
+// ── Import: normalización y aliases ──────────────────────────
+
+function normalizeHeaderToken(value) {
+  return `${value ?? ""}`
+    .toLowerCase()
+    .normalize("NFD").replace(/\p{Diacritic}/gu, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+// Aliases por columna — se normalizan igual que los encabezados del Excel
+const IMPORT_ALIASES = {
+  titulo:         ["titulo", "title", "cancion", "tema", "track", "pieza"],
+  autor:          ["autor", "autores", "compositor", "compositores", "author", "writer", "writers"],
+  interprete:     ["interprete", "interpretes", "artista", "artistas", "artist", "performer"],
+  tcIn:           ["tcin", "tcentrada", "timecodeentrada", "timein", "tcstart", "inicio", "entrada", "tcde", "in"],
+  tcOut:          ["tcout", "tcsalida", "timecodesalida", "timeout", "tcend", "fin", "salida", "tca", "out"],
+  modalidad:      ["modalidad", "uso", "tipodeuso", "mode"],
+  tipoMusica:     ["tipomusica", "tipodemusica", "musictype", "categoria"],
+  codigoLibreria: ["codigodelibreria", "codigobiblioteca", "codigo", "code", "libcode"],
+  nombreLibreria: ["nombredelibreria", "nombrebliblioteca", "nomblibreria", "library", "libraryname", "nombre"],
+};
+
+function findColumnKeyForHeader(headerText) {
+  const normalized = normalizeHeaderToken(headerText);
+  if (!normalized) return null;
+  for (const [columnKey, aliases] of Object.entries(IMPORT_ALIASES)) {
+    if (aliases.includes(normalized)) return columnKey;
+    // Coincidencia parcial: el header contiene uno de los aliases o viceversa
+    if (aliases.some((alias) => normalized.includes(alias) || alias.includes(normalized))) {
+      return columnKey;
+    }
+  }
+  return null;
+}
+
+function scoreRowAsHeader(rowValues) {
+  let score = 0;
+  for (const cell of rowValues) {
+    if (findColumnKeyForHeader(`${cell ?? ""}`)) score++;
+  }
+  return score;
+}
+
+function findHeaderRow(matrix) {
+  let bestScore = 0;
+  let bestIndex = -1;
+  // Escanear las primeras 40 filas para no recorrer documentos enteros
+  const limit = Math.min(matrix.length, 40);
+  for (let i = 0; i < limit; i++) {
+    const score = scoreRowAsHeader(matrix[i]);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = i;
+    }
+  }
+  // Requerir al menos 2 columnas reconocidas para aceptar la fila como cabecera
+  return bestScore >= 2 ? bestIndex : -1;
+}
+
+function extractMetadataFromMatrix(matrix, headerRowIndex) {
+  // Buscar "título programa" / "episodio" / "capítulo" en las filas previas al header
+  const TITULO_TOKENS = ["tituloprograma", "titulodelprograma", "titulo", "nombreprograma"];
+  const CAPITULO_TOKENS = ["episodio", "capitulo", "ep", "num", "numero"];
+
+  let tituloProg = "";
+  let capitulo = "";
+
+  for (let i = 0; i < headerRowIndex; i++) {
+    const row = matrix[i];
+    for (let j = 0; j < row.length - 1; j++) {
+      const token = normalizeHeaderToken(`${row[j] ?? ""}`);
+      if (!token) continue;
+      const nextVal = `${row[j + 1] ?? ""}`.trim();
+      if (!nextVal) continue;
+      if (!tituloProg && TITULO_TOKENS.some((t) => token.includes(t))) {
+        tituloProg = nextVal;
+      }
+      if (!capitulo && CAPITULO_TOKENS.some((t) => token.includes(t))) {
+        // El valor puede estar en la misma celda contigua o más adelante en la fila
+        for (let k = j + 1; k < row.length; k++) {
+          const v = `${row[k] ?? ""}`.trim();
+          if (v) { capitulo = v; break; }
+        }
+      }
+    }
+  }
+  return { tituloProg, capitulo };
+}
+
+function isTemplateOrEmptyDataRow(dataRow, colMap) {
+  // Fila vacía o de plantilla: ninguna columna textual (titulo, autor, interprete) tiene valor real
+  const textualKeys = new Set(["titulo", "autor", "interprete", "codigoLibreria", "nombreLibreria"]);
+  for (const [colIndexStr, columnKey] of Object.entries(colMap)) {
+    if (!textualKeys.has(columnKey)) continue;
+    const val = `${dataRow[Number(colIndexStr)] ?? ""}`.trim();
+    if (val) return false;
+  }
+  return true;
+}
+
+function importFromMatrix(matrix) {
+  const headerRowIndex = findHeaderRow(matrix);
+  if (headerRowIndex < 0) {
+    showGridToast("No se encontraron encabezados reconocibles en el archivo.");
+    return;
+  }
+
+  const headerRow = matrix[headerRowIndex];
+
+  // Construir mapa colIndex → columnKey (primera columna que mapea a cada key gana)
+  // Excluir 'duracion' — es computed, no se importa
+  const colMap = {};
+  const usedKeys = new Set();
+  headerRow.forEach((cell, colIndex) => {
+    const key = findColumnKeyForHeader(`${cell ?? ""}`);
+    if (key && key !== "duracion" && !usedKeys.has(key)) {
+      colMap[colIndex] = key;
+      usedKeys.add(key);
+    }
+  });
+
+  if (!Object.keys(colMap).length) {
+    showGridToast("Ninguna columna reconocida en los encabezados.");
+    return;
+  }
+
+  // Extraer metadata (título de programa, capítulo) de las filas previas al header
+  const { tituloProg, capitulo } = extractMetadataFromMatrix(matrix, headerRowIndex);
+  if (tituloProg) {
+    const inputTitulo = document.getElementById("input-titulo-programa");
+    if (inputTitulo) inputTitulo.value = tituloProg;
+  }
+  if (capitulo) {
+    const inputCap = document.getElementById("input-capitulo");
+    if (inputCap) inputCap.value = capitulo;
+  }
+
+  // Filas de datos: debajo del header, no vacías, no filas de plantilla
+  const dataRows = matrix
+    .slice(headerRowIndex + 1)
+    .filter((row) => row.some((cell) => `${cell ?? ""}`.trim() !== ""))
+    .filter((row) => !isTemplateOrEmptyDataRow(row, colMap));
+
+  if (!dataRows.length) {
+    showGridToast("No hay datos debajo de los encabezados.");
+    return;
+  }
+
+  // Rellenar el grid
+  const block = blocks[0];
+  let importedCount = 0;
+
+  withHistoryAction("import", { groupKey: "import" }, () => {
+    dataRows.forEach((dataRow, i) => {
+      if (i >= block.rows.length) {
+        insertRows(0, block.rows.length, 1, { historyType: "import", render: false });
+      }
+      const targetRow = blocks[0].rows[i];
+      if (!targetRow) return;
+
+      let rowHasData = false;
+      for (const [colIndexStr, columnKey] of Object.entries(colMap)) {
+        const colIndex = Number(colIndexStr);
+        const rawValue = `${dataRow[colIndex] ?? ""}`.trim();
+        if (!rawValue) continue;
+        const parsed = parseCellValue(columnKey, rawValue);
+        if (parsed !== targetRow[columnKey]) {
+          const before = targetRow[columnKey];
+          targetRow[columnKey] = parsed;
+          addPatchToCurrentAction(
+            createSetCellPatch(
+              { blockIndex: 0, rowIndex: i, rowKey: targetRow.rowKey, columnKey },
+              before,
+              parsed
+            ),
+            { type: "import", groupKey: "import" }
+          );
+          rowHasData = true;
+        }
+      }
+
+      // Si la fila tiene TC IN y TC OUT, calcular Duración automáticamente
+      if (targetRow.tcIn && targetRow.tcOut) {
+        const calculatedDur = calcDuracion(targetRow.tcIn, targetRow.tcOut);
+        if (calculatedDur && calculatedDur !== targetRow.duracion) {
+          const before = targetRow.duracion;
+          targetRow.duracion = calculatedDur;
+          addPatchToCurrentAction(
+            createSetCellPatch(
+              { blockIndex: 0, rowIndex: i, rowKey: targetRow.rowKey, columnKey: "duracion" },
+              before, calculatedDur
+            ),
+            { type: "import", groupKey: "import" }
+          );
+        }
+      }
+
+      if (rowHasData) importedCount++;
+    });
+
+    // Limpiar las filas restantes del grid (por si había datos previos)
+    for (let i = dataRows.length; i < blocks[0].rows.length; i++) {
+      const targetRow = blocks[0].rows[i];
+      columns.forEach(({ key }) => {
+        if (targetRow[key]) {
+          const before = targetRow[key];
+          targetRow[key] = "";
+          addPatchToCurrentAction(
+            createSetCellPatch(
+              { blockIndex: 0, rowIndex: i, rowKey: targetRow.rowKey, columnKey: key },
+              before, ""
+            ),
+            { type: "import", groupKey: "import" }
+          );
+        }
+      });
+    }
+  });
+
+  renderRows();
+  const mappedKeys = [...new Set(Object.values(colMap))];
+  showGridToast(`Importadas ${importedCount} filas · ${mappedKeys.length} columnas reconocidas`);
+}
+
+function importCueSheet() {
+  if (!window.XLSX) {
+    showGridToast("Librería de Excel no disponible.");
+    return;
+  }
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".xlsx,.xls,.xlsm";
+  input.style.display = "none";
+  input.addEventListener("change", () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const workbook = window.XLSX.read(e.target.result, { type: "array" });
+        // Buscar la primera hoja visible
+        const sheetName = workbook.SheetNames.find((name) => {
+          const sheet = workbook.Sheets[name];
+          return sheet && sheet["!type"] !== "chart";
+        }) || workbook.SheetNames[0];
+        if (!sheetName) { showGridToast("No se encontró ninguna hoja en el archivo."); return; }
+        const matrix = window.XLSX.utils.sheet_to_json(
+          workbook.Sheets[sheetName],
+          { header: 1, raw: false, defval: "" }
+        );
+        importFromMatrix(matrix);
+      } catch (err) {
+        showGridToast("Error al leer el archivo. Comprueba el formato.");
+      } finally {
+        input.remove();
+      }
+    };
+    reader.onerror = () => { showGridToast("No se pudo leer el archivo."); input.remove(); };
+    reader.readAsArrayBuffer(file);
+  });
+  document.body.appendChild(input);
+  input.click();
+}
+
+// ── Validación previa al export ───────────────────────────────
+
+const EXPORT_REQUIRED_FIELDS = ["titulo", "autor", "duracion", "modalidad", "tipoMusica"];
+
+function tcToSeconds(tc) {
+  if (!tc || !/^\d{2}:\d{2}:\d{2}$/.test(tc)) return null;
+  const [h, m, s] = tc.split(":").map(Number);
+  return h * 3600 + m * 60 + s;
+}
+
+function clearExportValidationErrors() {
+  document.querySelectorAll(".has-export-error").forEach((el) => {
+    el.classList.remove("has-export-error");
+  });
+  document.querySelectorAll(".export-required-label").forEach((el) => el.remove());
+  const titleInput = document.getElementById("input-titulo-programa");
+  if (titleInput) {
+    titleInput.classList.remove("has-export-error");
+    titleInput.placeholder = "";
+  }
+}
+
+function validateAndExport() {
+  clearExportValidationErrors();
+
+  const errors = [];
+
+  // 1. Título de programa
+  const titleInput = document.getElementById("input-titulo-programa");
+  if (!titleInput?.value.trim()) {
+    titleInput?.classList.add("has-export-error");
+    if (titleInput) titleInput.placeholder = "OBLIGATORIO";
+    errors.push("Título de programa vacío");
+  }
+
+  // 2. Filas de datos — solo las no vacías
+  const block = blocks[0];
+  let firstErrorCell = null;
+
+  block.rows.forEach((row, rowIndex) => {
+    if (isPlaceholderRow(row)) return;
+
+    // Campos obligatorios
+    EXPORT_REQUIRED_FIELDS.forEach((key) => {
+      const value = `${row[key] ?? ""}`.trim();
+      if (!value) {
+        const cell = document.querySelector(
+          `[data-block-index="0"][data-row-index="${rowIndex}"][data-column-key="${key}"]`
+        );
+        if (cell) {
+          cell.classList.add("has-export-error");
+          // Mostrar "OBLIGATORIO" solo si la celda está vacía y no está en edición
+          if (!cell.classList.contains("is-editing") && !cell.querySelector(".export-required-label")) {
+            const label = document.createElement("span");
+            label.className = "export-required-label";
+            label.textContent = "OBLIGATORIO";
+            cell.appendChild(label);
+          }
+          if (!firstErrorCell) firstErrorCell = cell;
+        }
+        errors.push(`Fila ${rowIndex + 1}: ${key} vacío`);
+      }
+    });
+
+    // TC: formato válido
+    ["tcIn", "tcOut"].forEach((key) => {
+      const value = `${row[key] ?? ""}`.trim();
+      if (value && !isValidTCFormat(value)) {
+        const cell = document.querySelector(
+          `[data-block-index="0"][data-row-index="${rowIndex}"][data-column-key="${key}"]`
+        );
+        if (cell) {
+          cell.classList.add("has-export-error");
+          if (!firstErrorCell) firstErrorCell = cell;
+        }
+        errors.push(`Fila ${rowIndex + 1}: ${key} inválido`);
+      }
+    });
+
+    // TC OUT > TC IN
+    const secsIn  = tcToSeconds(row.tcIn);
+    const secsOut = tcToSeconds(row.tcOut);
+    if (secsIn !== null && secsOut !== null && secsOut <= secsIn) {
+      ["tcIn", "tcOut"].forEach((key) => {
+        const cell = document.querySelector(
+          `[data-block-index="0"][data-row-index="${rowIndex}"][data-column-key="${key}"]`
+        );
+        if (cell) {
+          cell.classList.add("has-export-error");
+          if (!firstErrorCell) firstErrorCell = cell;
+        }
+      });
+      errors.push(`Fila ${rowIndex + 1}: TC OUT debe ser mayor que TC IN`);
+    }
+  });
+
+  if (errors.length) {
+    // Scroll a la primera celda con error
+    if (firstErrorCell) {
+      firstErrorCell.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    const uniqueRows = [...new Set(errors.map((e) => e.split(":")[0]))].length;
+    showGridToast(`${errors.length} error${errors.length > 1 ? "es" : ""} en ${uniqueRows} fila${uniqueRows > 1 ? "s" : ""} — corrige antes de exportar`);
+    return false;
+  }
+
+  return true;
+}
+
+const CUE_SHEET_TEMPLATE_B64 = "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";
+
+async function exportCueSheet() {
+  if (!validateAndExport()) return;
+
+  const tituloProg = document.getElementById("input-titulo-programa")?.value.trim() || "";
+  const capitulo   = document.getElementById("input-capitulo")?.value.trim() || "";
+  const safeTitle  = tituloProg
+    .normalize("NFD").replace(/\p{Diacritic}/gu, "")
+    .toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const fileName   = `${safeTitle}_CUE_SHEET.xlsx`;
+  const dataRows   = blocks[0].rows.filter((row) => !isPlaceholderRow(row));
+
+  // Cargar JSZip si no esta disponible
+  if (!window.JSZip) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+      s.onload = resolve;
+      s.onerror = () => reject(new Error("No se pudo cargar JSZip"));
+      document.head.appendChild(s);
+    });
+  }
+
+  try {
+    // Decodificar plantilla base64 a bytes
+    const binaryStr = atob(CUE_SHEET_TEMPLATE_B64);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+
+    // Abrir ZIP sin modificar nada
+    const zip = await window.JSZip.loadAsync(bytes);
+
+    // Leer sheet1.xml como texto
+    const sheetFile = zip.file("xl/worksheets/sheet1.xml");
+    if (!sheetFile) throw new Error("No se encontro sheet1.xml en la plantilla.");
+    let sheetXml = await sheetFile.async("string");
+
+    // Escape XML
+    function escXml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // Reemplazar valor de una celda existente preservando su estilo
+    function replaceCellValue(cellXml, value) {
+      const rMatch  = cellXml.match(/r="([^"]+)"/);
+      const sMatch  = cellXml.match(/\ss="(\d+)"/);
+      const ref     = rMatch ? rMatch[1] : "";
+      const sAttr   = sMatch ? ` s="${sMatch[1]}"` : "";
+      if (!value) return cellXml; // no tocar celdas vacias
+      return `<c r="${ref}"${sAttr} t="inlineStr"><is><t>${escXml(value)}</t></is></c>`;
+    }
+
+    // Reemplazar celda por referencia dentro del XML completo
+    // IMPORTANTE: detectar self-closing PRIMERO para no engullir celdas adyacentes
+    function replaceCellInXml(xml, cellRef, value) {
+      if (!value) return xml;
+
+      // 1) Self-closing: <c r="C4" s="15"/>  — debe terminar en />
+      const reSC = new RegExp(`<c(?=\\s)[^>]*?\\br="${cellRef}"[^>]*?/>`);
+      if (reSC.test(xml)) {
+        return xml.replace(reSC, (match) => replaceCellValue(match, value));
+      }
+
+      // 2) Con contenido: <c r="C4" ...>...</c>
+      const reContent = new RegExp(`<c(?=\\s)[^>]*?\\br="${cellRef}"[^>]*?>[\\s\\S]*?</c>`);
+      if (reContent.test(xml)) {
+        return xml.replace(reContent, (match) => replaceCellValue(match, value));
+      }
+
+      return xml;
+    }
+
+    // Titulo de programa (C4) y capitulo (H4)
+    if (tituloProg) sheetXml = replaceCellInXml(sheetXml, "C4", tituloProg);
+    if (capitulo)   sheetXml = replaceCellInXml(sheetXml, "H4", capitulo);
+
+    // Filas de datos a partir de fila 10
+    const COL_LETTERS = ["B","C","D","E","F","G","H","I","J","K"];
+    const COL_KEYS    = ["titulo","autor","interprete","duracion","tcIn","tcOut","modalidad","tipoMusica","codigoLibreria","nombreLibreria"];
+    const DATA_START  = 10;
+
+    dataRows.forEach((row, i) => {
+      const rn = DATA_START + i;
+      COL_KEYS.forEach((key, j) => {
+        const value = `${row[key] ?? ""}`.trim();
+        sheetXml = replaceCellInXml(sheetXml, `${COL_LETTERS[j]}${rn}`, value);
+      });
+    });
+
+    // Guardar XML modificado en el ZIP (el resto queda intacto)
+    zip.file("xl/worksheets/sheet1.xml", sheetXml);
+
+    // Descargar
+    const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = fileName;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+    showGridToast(`Exportado: ${fileName}`);
+  } catch (err) {
+    showGridToast("Error al exportar: " + err.message);
+    console.error("[exportCueSheet]", err);
+  }
+}
+
+// ── Modal Info ───────────────────────────────────────────────
+
+function openInfoModal() {
+  const overlay = document.getElementById("info-overlay");
+  if (!overlay) return;
+  overlay.classList.add("open");
+  overlay.setAttribute("aria-hidden", "false");
+  document.body.classList.add("info-modal-open");
+  // Focus al botón de cerrar para accesibilidad
+  const closeBtn = overlay.querySelector(".info-modal__close");
+  if (closeBtn) closeBtn.focus();
+}
+
+function closeInfoModal() {
+  const overlay = document.getElementById("info-overlay");
+  if (!overlay) return;
+  overlay.classList.remove("open");
+  overlay.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("info-modal-open");
+  // Devolver foco al botón de info
+  const infoBtn = document.querySelector(".info-btn");
+  if (infoBtn) infoBtn.focus();
+}
+
+// ── Sort ──────────────────────────────────────────────────────
+
+function updateSortHeaderIndicators() {
+  const leftHeader = document.getElementById("left-header");
+  if (!leftHeader) return;
+  leftHeader.querySelectorAll(".left-header-sortable").forEach((cell) => {
+    const key = cell.dataset.sortKey;
+    const arrow = cell.querySelector(".sort-arrow");
+    const isActive = sortState.key === key;
+    cell.classList.toggle("sort-active", isActive);
+    if (arrow) arrow.textContent = isActive ? (sortState.dir === "asc" ? " ↑" : " ↓") : "";
+  });
+}
+
+// ── createLeftRow (sin columna derecha de días) ───────────────
+
+function createLeftRow() {
+  const leftRow = document.createElement("div");
+  leftRow.className = "left-row";
+  for (let i = 0; i < 10; i++) {
+    const cell = document.createElement("div");
+    leftRow.appendChild(cell);
+  }
+  return leftRow;
+}
+
+// ── Render ────────────────────────────────────────────────────
+
+function renderRows() {
+  const leftBody = document.getElementById("left-body");
+  if (!leftBody) return;
+
+  leftBody.innerHTML = "";
+  selectedCell = null;
+  clearFillPreview();
+
+  const block = blocks[0];
+  const orderedRows = getOrderedRowsForMonth(block);
+
+  orderedRows.forEach(({ row, sourceIndex }) => {
+    const leftRow = createLeftRow();
+
+    function attachCol(idx, key, attachFn) {
+      const cell = leftRow.children[idx];
+      attachFn(cell, row, key);
+      cell.dataset.blockIndex = "0";
+      cell.dataset.rowIndex = String(sourceIndex);
+      cell.dataset.rowId = row.rowKey;
+      cell.dataset.columnKey = key;
+      cell.tabIndex = 0;
+      if (isSelectedCellState(row, key)) { selectedCell = cell; cell.classList.add("is-selected"); }
+    }
+
+    // 10 columnas sin gutter
+    attachCol(0, "titulo",         attachTitleCell);
+    attachCol(1, "autor",          (c, r) => attachTextCell(c, r, "autor"));
+    attachCol(2, "interprete",     (c, r) => attachTextCell(c, r, "interprete"));
+    attachCol(3, "tcIn",           (c, r) => attachTextCell(c, r, "tcIn"));
+    attachCol(4, "tcOut",          (c, r) => attachTextCell(c, r, "tcOut"));
+    attachCol(5, "duracion",       attachDuracionCell);
+    attachCol(6, "modalidad",      (c, r) => attachSelectCell(c, r, "modalidad"));
+    attachCol(7, "tipoMusica",     (c, r) => attachSelectCell(c, r, "tipoMusica"));
+    attachCol(8, "codigoLibreria", (c, r) => attachTextCell(c, r, "codigoLibreria"));
+    attachCol(9, "nombreLibreria", (c, r) => attachTextCell(c, r, "nombreLibreria"));
+
+    leftRow.addEventListener("contextmenu", (event) => openContextMenu(event, 0, sourceIndex));
+    leftBody.appendChild(leftRow);
+  });
+
+  syncFillHandlePosition();
+  syncCopyAntsPosition();
+  renderDragSelectionPreview(dragSelection);
+}
+
+// ── Inicialización ────────────────────────────────────────────
+
+function renderApp(root) {
+  if (IS_VIEWER_MODE) document.body.classList.add("is-viewer-mode");
+
+  root.innerHTML = `
+    <section class="panel-layout" aria-label="Declaración de Músicas">
+      <header class="panel-layout__top-header">
+        <div class="panel-layout__top-header__inner">
+          <img src="assets/img/logo_SGAE.svg" alt="SGAE" class="panel-layout__top-header__logo" />
+          <div class="panel-layout__top-header__title">
+            <img src="assets/img/cabecera_DecMusicas.svg" alt="Declaración de Músicas" />
           </div>
-          <div class="time-sep" aria-hidden="true">:</div>
-          <div class="time-col" data-unit="mm">
-            <button class="time-btn time-btn--up" type="button" aria-label="Subir minutos"></button>
-            <div class="time-val" data-unit="mm">00</div>
-            <button class="time-btn time-btn--down" type="button" aria-label="Bajar minutos"></button>
-            <div class="time-lab">MM</div>
+          <img src="assets/img/logoM+.svg" alt="Movistar+" class="panel-layout__top-header__logo" />
+        </div>
+      </header>
+
+      <!-- Barra 1: botones IMPORTAR / GENERAR -->
+      <div class="cabecera-acciones" aria-label="Acciones">
+        <div class="cabecera-acciones__inner">
+          <button type="button" class="cue-sheet-btn info-btn" aria-label="Información" title="Información y ayuda">&#x2139;</button>
+          <span class="cabecera-acciones__spacer"></span>
+          <button type="button" class="cue-sheet-btn import-btn">IMPORTAR CUE SHEET</button>
+          <button type="button" class="cue-sheet-btn export-btn">GENERAR CUE SHEET</button>
+        </div>
+      </div>
+
+      <!-- Barra 2: Título de Programa + Capítulo -->
+      <div class="cabecera-meta" aria-label="Datos del programa">
+        <div class="cabecera-meta__inner">
+          <label class="cabecera-meta__field cabecera-meta__field--titulo">
+            <span class="cabecera-meta__label">TÍTULO DE PROGRAMA</span>
+            <input type="text" class="cabecera-meta__input cabecera-meta__input--titulo" id="input-titulo-programa" autocomplete="off" />
+          </label>
+          <label class="cabecera-meta__field cabecera-meta__field--capitulo">
+            <span class="cabecera-meta__label">CAPÍTULO</span>
+            <input type="text" class="cabecera-meta__input cabecera-meta__input--capitulo" id="input-capitulo" autocomplete="off" />
+          </label>
+        </div>
+      </div>
+
+      <!-- Modal: Información y Ayuda -->
+      <div class="info-overlay" id="info-overlay" role="dialog" aria-modal="true" aria-labelledby="info-modal-title" aria-hidden="true">
+        <div class="info-modal">
+          <div class="info-modal__header">
+            <h2 class="info-modal__title" id="info-modal-title">&#x2139;&nbsp; Información y ayuda</h2>
+            <button type="button" class="info-modal__close" aria-label="Cerrar">&#x2715;</button>
           </div>
-          <div class="time-sep" aria-hidden="true">:</div>
-          <div class="time-col" data-unit="ss">
-            <button class="time-btn time-btn--up" type="button" aria-label="Subir segundos"></button>
-            <div class="time-val" data-unit="ss">00</div>
-            <button class="time-btn time-btn--down" type="button" aria-label="Bajar segundos"></button>
-            <div class="time-lab">SS</div>
+          <div class="info-modal__body">
+
+            <section class="info-section">
+              <h3 class="info-section__title">¿Para qué sirve esta herramienta?</h3>
+              <p>La <strong>Declaración de Músicas</strong> (Cue Sheet) es el documento oficial que informa a la SGAE de qué música aparece en cada episodio de un programa, en qué momento y durante cuánto tiempo. Esta herramienta permite rellenarla directamente en el navegador y exportarla al formato Excel adecuado.</p>
+            </section>
+
+            <section class="info-section">
+              <h3 class="info-section__title">Campos del formulario</h3>
+              <dl class="info-fields">
+                <div class="info-fields__row info-fields__row--required">
+                  <dt>Título de programa</dt>
+                  <dd><strong class="info-required-text">Campo obligatorio.</strong></dd>
+                </div>
+                <div class="info-fields__row">
+                  <dt>Episodio</dt>
+                  <dd>Campo opcional.</dd>
+                </div>
+                <div class="info-fields__row info-fields__row--required">
+                  <dt>Título</dt>
+                  <dd><strong class="info-required-text">Campo obligatorio.</strong> Nombre de la pieza musical.</dd>
+                </div>
+                <div class="info-fields__row info-fields__row--required">
+                  <dt>Autor</dt>
+                  <dd><strong class="info-required-text">Campo obligatorio.</strong> Compositor o autor de la obra. Si hay varios, introducirlos separados con coma.</dd>
+                </div>
+                <div class="info-fields__row">
+                  <dt>Intérprete</dt>
+                  <dd>Campo opcional.</dd>
+                </div>
+                <div class="info-fields__row info-fields__row--required">
+                  <dt>Duración</dt>
+                  <dd><strong class="info-required-text">Campo obligatorio.</strong> Tiempo real de uso de la música, en formato <code>hh:mm:ss</code>. Se calcula automáticamente a partir de TC IN y TC OUT, pero también puede introducirse manualmente sin establecer el TC IN y el TC OUT.</dd>
+                </div>
+                <div class="info-fields__row">
+                  <dt>TC IN</dt>
+                  <dd>Timecode de entrada de la música, en formato <code>hh:mm:ss</code>. Se puede escribir solo los dígitos (p.ej. <code>12345</code> → <code>00:01:23</code>) y se formatea solo al salir del campo.</dd>
+                </div>
+                <div class="info-fields__row">
+                  <dt>TC OUT</dt>
+                  <dd>Timecode de salida. Igual que TC IN. Debe ser posterior al TC IN.</dd>
+                </div>
+                <div class="info-fields__row info-fields__row--required">
+                  <dt>Modalidad</dt>
+                  <dd><strong class="info-required-text">Campo obligatorio.</strong> Tipo de uso de la música: FONDOS, AMBIENTACIONES, CARETAS, COMERCIAL, SINFÓNICOS o VARIEDADES.</dd>
+                </div>
+                <div class="info-fields__row info-fields__row--required">
+                  <dt>Tipo de música</dt>
+                  <dd><strong class="info-required-text">Campo obligatorio.</strong> ORIGINAL o LIBRERÍA.</dd>
+                </div>
+                <div class="info-fields__row">
+                  <dt>Código de librería</dt>
+                  <dd>Campo opcional.</dd>
+                </div>
+                <div class="info-fields__row">
+                  <dt>Nombre de librería</dt>
+                  <dd>Campo opcional.</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="info-section">
+              <h3 class="info-section__title">Botones de la barra superior</h3>
+              <dl class="info-fields">
+                <div class="info-fields__row">
+                  <dt>IMPORTAR CUE SHEET</dt>
+                  <dd>Carga un fichero Excel (<code>.xlsx</code>, <code>.xls</code> o <code>.xlsm</code>) existente para poder seguir editándolo si fuera necesario.</dd>
+                </div>
+                <div class="info-fields__row">
+                  <dt>GENERAR CUE SHEET</dt>
+                  <dd>Valida el contenido del grid (campos obligatorios, formatos de TC) y exporta un fichero Excel con el formato oficial. Antes de exportar, las celdas con errores se marcan en naranja.</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="info-section">
+              <h3 class="info-section__title">Consejos de uso</h3>
+              <ul class="info-tips">
+                <li>Puedes <strong>pegar directamente desde Excel el contenido de una sola columna</strong> seleccionando una celda del grid y usando <kbd>Ctrl+V</kbd>.</li>
+                <li>Para <strong>seleccionar un rango</strong> de filas usa <kbd>Shift+Clic</kbd> o <kbd>Shift+↑↓</kbd>.</li>
+                <li>Para <strong>eliminar filas</strong> selecciónalas y pulsa <kbd>Supr</kbd> o <kbd>Delete</kbd>.</li>
+                <li>Si se escribe el TC sin separadores (p.ej. <code>013456</code>), la herramienta lo formatea automáticamente como <code>00:01:34</code> al confirmar la celda.</li>
+                <li>Si se edita la <strong>Duración</strong> manualmente, el TC IN se pone a <code>00:00:00</code> y el TC OUT se iguala a la duración introducida.</li>
+              </ul>
+            </section>
+
           </div>
         </div>
       </div>
-    `;
-    timeOverlayRoot.appendChild(overlay);
-    activeTimeOverlay = overlay;
-    updateTimeOverlayPosition();
 
-    const spinner = overlay.querySelector(".time-spinner");
-    const valueNodes = overlay.querySelectorAll(".time-val");
-    const colNodes = overlay.querySelectorAll(".time-col");
+                  <section class="month-block" aria-label="Grid de declaración">
+        <header class="month-block__header">
+          <div class="left-header" id="left-header"></div>
+        </header>
+        <div class="month-block__body">
+          <div class="month-block__body-scroll-wrapper">
+            <div class="month-block__body-grid" tabindex="0" aria-label="Grid de declaración de músicas">
+              <div class="left-grid" id="left-body"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+  `;
 
-    const parseTimeString = (value) => {
-      if (!value) {
-        return { hh: 0, mm: 0, ss: 0 };
-      }
-      const match = value.match(/^(\d{2}):(\d{2}):(\d{2})$/);
-      if (!match) {
-        return { hh: 0, mm: 0, ss: 0 };
-      }
-      return {
-        hh: Number.parseInt(match[1], 10) || 0,
-        mm: Number.parseInt(match[2], 10) || 0,
-        ss: Number.parseInt(match[3], 10) || 0,
-      };
-    };
+  // Cabecera con columnas
+  const leftHeader = root.querySelector("#left-header");
 
-    const clampUnitValue = (unit, value) => {
-      const max = unit === "hh" ? 99 : 59;
-      return Math.min(Math.max(value, 0), max);
-    };
-
-    const normalize2 = (value) => String(value).padStart(2, "0");
-
-    const renderSpinnerState = () => {
-      valueNodes.forEach((node) => {
-        const unit = node.dataset.unit;
-        if (!unit) {
-          return;
-        }
-        node.textContent = normalize2(timeState[unit]);
-      });
-      colNodes.forEach((node) => {
-        node.classList.toggle("is-active", node.dataset.unit === timeState.activeUnit);
-      });
-    };
-
-    const setActiveUnit = (unit) => {
-      timeState.activeUnit = unit;
-      timeState.digitBuffer = "";
-      renderSpinnerState();
-    };
-
-    const applyDigitToActiveUnit = (digit) => {
-      const currentBuffer = `${timeState.digitBuffer}${digit}`.slice(0, 2);
-      timeState.digitBuffer = currentBuffer;
-      let value = Number.parseInt(currentBuffer, 10);
-      if (Number.isNaN(value)) {
-        value = 0;
-      }
-      value = clampUnitValue(timeState.activeUnit, value);
-      timeState[timeState.activeUnit] = value;
-      renderSpinnerState();
-      if (currentBuffer.length === 2) {
-        timeState.digitBuffer = "";
-      }
-    };
-
-    const adjustActiveUnit = (delta) => {
-      const unit = timeState.activeUnit;
-      if (!unit) {
-        return;
-      }
-      timeState[unit] = clampUnitValue(unit, timeState[unit] + delta);
-      timeState.digitBuffer = "";
-      renderSpinnerState();
-    };
-
-    const commitTime = () => {
-      if (!activeTimeCell) {
-        return;
-      }
-      const finalValue = ["hh", "mm", "ss"].map((unit) => normalize2(timeState[unit])).join(":");
-      activeTimeCell.textContent = finalValue;
-      activeTimeCell.dataset.timeValue = finalValue;
-      updateRecordTimeValue(activeTimeCell, finalValue);
-      closeTimeOverlay();
-    };
-
-    const cancelTime = () => {
-      if (!activeTimeCell) {
-        return;
-      }
-      if (prevValueString) {
-        activeTimeCell.textContent = prevValueString;
-        activeTimeCell.dataset.timeValue = prevValueString;
+  headers.forEach((label, index) => {
+    const columnKey = columns[index].key;
+    const cell = document.createElement("div");
+    cell.className = "left-header-sortable";
+    cell.dataset.sortKey = columnKey;
+    cell.title = `Ordenar por ${label}`;
+    const labelSpan = document.createElement("span");
+    labelSpan.textContent = label;
+    cell.appendChild(labelSpan);
+    const arrow = document.createElement("span");
+    arrow.className = "sort-arrow";
+    cell.appendChild(arrow);
+    cell.addEventListener("click", () => {
+      if (sortState.key === columnKey) {
+        sortState = sortState.dir === "asc" ? { key: columnKey, dir: "desc" } : { key: null, dir: "asc" };
       } else {
-        activeTimeCell.textContent = TIME_PLACEHOLDER;
-        delete activeTimeCell.dataset.timeValue;
+        sortState = { key: columnKey, dir: "asc" };
       }
-      closeTimeOverlay();
-    };
-
-    const initialParts = parseTimeString(prevValueString);
-    timeState = {
-      hh: initialParts.hh,
-      mm: initialParts.mm,
-      ss: initialParts.ss,
-      activeUnit: "hh",
-      digitBuffer: "",
-    };
-    renderSpinnerState();
-
-    const handleSpinnerClick = (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) {
-        return;
-      }
-      const button = target.closest(".time-btn");
-      const col = target.closest(".time-col");
-      if (!col) {
-        return;
-      }
-      const unit = col.dataset.unit;
-      if (!unit) {
-        return;
-      }
-      if (button) {
-        setActiveUnit(unit);
-        const isUp = button.classList.contains("time-btn--up");
-        adjustActiveUnit(isUp ? 1 : -1);
-        return;
-      }
-      if (target.closest(".time-val") || col) {
-        setActiveUnit(unit);
-      }
-    };
-
-    const handleKeydown = (event) => {
-      if (event.key === "Tab") {
-        const order = ["hh", "mm", "ss"];
-        const currentIndex = order.indexOf(timeState.activeUnit);
-        const direction = event.shiftKey ? -1 : 1;
-        const atStartBoundary = direction === -1 && currentIndex === 0;
-        const atEndBoundary = direction === 1 && currentIndex === order.length - 1;
-
-        if (!atStartBoundary && !atEndBoundary) {
-          event.preventDefault();
-          setActiveUnit(order[currentIndex + direction]);
-          return;
-        }
-
-        event.preventDefault();
-        const sourceCell = activeTimeCell;
-        commitTime();
-        if (sourceCell) {
-          const nextControl = getNextRowEditableControl({ sourceElement: sourceCell, direction });
-          nextControl?.focus();
-        }
-        return;
-      }
-      if (event.key === "Escape") {
-        cancelTime();
-        return;
-      }
-      if (event.key === "Enter") {
-        commitTime();
-        return;
-      }
-      if (/^\d$/.test(event.key)) {
-        applyDigitToActiveUnit(event.key);
-      }
-    };
-
-    const handlePointerDown = (event) => {
-      if (!activeTimeOverlay) {
-        return;
-      }
-      const target = event.target;
-      if (activeTimeOverlay.contains(target)) {
-        return;
-      }
-      commitTime();
-    };
-
-    const handleResize = () => updateTimeOverlayPosition();
-    const handleScroll = () => updateTimeOverlayPosition();
-
-    timeOverlayListeners = {
-      handleKeydown,
-      handlePointerDown,
-      handleResize,
-      handleScroll,
-      handleSpinnerClick,
-    };
-    document.addEventListener("keydown", handleKeydown);
-    document.addEventListener("mousedown", handlePointerDown);
-    window.addEventListener("resize", handleResize);
-    recordsViewport.addEventListener("scroll", handleScroll);
-    spinner?.addEventListener("click", handleSpinnerClick);
-  };
-
-  const closeOverlay = ({ cancel = false } = {}) => {
-    if (!activeEditorTarget) {
-      return;
-    }
-    if (cancel) {
-      activeEditorTarget.value = editorPreviousValue;
-      activeEditorTarget.dispatchEvent(new Event("input", { bubbles: true }));
-    }
-
-    activeEditorTarget.classList.remove("is-editing", "is-error");
-    overlayInput.classList.remove("is-active", "is-editing", "is-error");
-    overlayHint.hidden = true;
-    overlayOverflowAttempted = false;
-
-    activeEditorTarget = null;
-    editorPreviousValue = "";
-  };
-
-  const openOverlayForInput = (input) => {
-    activeEditorTarget = input;
-    editorPreviousValue = input.value;
-    updateActiveHeaderFromTarget(input);
-
-    input.classList.add("is-editing");
-    overlayOverflowAttempted = false;
-    overlayInput.value = input.value;
-    overlayInput.placeholder = input.placeholder;
-    overlayInput.classList.add("is-active", "is-editing");
-    if (overlayInput.value.length < maxLength) {
-      overlayOverflowAttempted = false;
-    }
-    syncOverlayValidation();
-    updateOverlayPosition();
-    overlayInput.focus();
-    overlayInput.setSelectionRange(overlayInput.value.length, overlayInput.value.length);
-  };
-  const showDeleteWarningModal = () => {
-    const overlay = document.createElement("div");
-    overlay.className = "delete-warning-modal__overlay";
-
-    const dialog = document.createElement("div");
-    dialog.className = "delete-warning-modal";
-    dialog.setAttribute("role", "dialog");
-    dialog.setAttribute("aria-modal", "true");
-
-    const text = document.createElement("p");
-    text.className = "delete-warning-modal__text";
-    text.textContent = "Selecciona las filas que quieres eliminar";
-
-    const closeButton = document.createElement("button");
-    closeButton.className = "delete-warning-modal__close";
-    closeButton.type = "button";
-    closeButton.textContent = "Cerrar";
-
-    dialog.append(text, closeButton);
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
-
-    const hide = () => {
-      closeButton.removeEventListener("click", hide);
-      overlay.remove();
-    };
-
-    closeButton.addEventListener("click", hide);
-
-    closeButton.focus();
-  };
-
-  const showDeleteConfirmationModal = (selectedCount, onConfirm) => {
-    const overlay = document.createElement("div");
-    overlay.className = "delete-warning-modal__overlay";
-
-    const dialog = document.createElement("div");
-    dialog.className = "delete-warning-modal";
-    dialog.setAttribute("role", "dialog");
-    dialog.setAttribute("aria-modal", "true");
-
-    const text = document.createElement("p");
-    text.className = "delete-warning-modal__text";
-    text.textContent =
-      selectedCount === 1
-        ? "Vas a eliminar 1 fila"
-        : `Vas a eliminar ${selectedCount} filas`;
-
-    const actions = document.createElement("div");
-    actions.className = "delete-warning-modal__actions";
-
-    const okButton = document.createElement("button");
-    okButton.className = "delete-warning-modal__action";
-    okButton.type = "button";
-    okButton.textContent = "OK";
-
-    const cancelButton = document.createElement("button");
-    cancelButton.className = "delete-warning-modal__action";
-    cancelButton.type = "button";
-    cancelButton.textContent = "Cancelar";
-
-    actions.append(okButton, cancelButton);
-    dialog.append(text, actions);
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
-
-    const hide = () => {
-      okButton.removeEventListener("click", handleConfirm);
-      cancelButton.removeEventListener("click", hide);
-      overlay.remove();
-    };
-
-    const handleConfirm = () => {
-      hide();
-      onConfirm();
-    };
-
-    okButton.addEventListener("click", handleConfirm);
-    cancelButton.addEventListener("click", hide);
-
-    cancelButton.focus();
-  };
-
-  const showImportConfirmationModal = ({ onReplace, onAppend }) => {
-    const overlay = document.createElement("div");
-    overlay.className = "delete-warning-modal__overlay";
-
-    const dialog = document.createElement("div");
-    dialog.className = "delete-warning-modal";
-    dialog.setAttribute("role", "dialog");
-    dialog.setAttribute("aria-modal", "true");
-
-    const text = document.createElement("p");
-    text.className = "delete-warning-modal__text";
-    text.textContent = "Ya hay datos cargados. ¿Qué quieres hacer?";
-
-    const actions = document.createElement("div");
-    actions.className = "delete-warning-modal__actions";
-
-    const replaceButton = document.createElement("button");
-    replaceButton.className = "delete-warning-modal__action";
-    replaceButton.type = "button";
-    replaceButton.textContent = "Reemplazar";
-
-    const appendButton = document.createElement("button");
-    appendButton.className = "delete-warning-modal__action";
-    appendButton.type = "button";
-    appendButton.textContent = "Añadir";
-
-    const cancelButton = document.createElement("button");
-    cancelButton.className = "delete-warning-modal__action";
-    cancelButton.type = "button";
-    cancelButton.textContent = "Cancelar";
-
-    actions.append(replaceButton, appendButton, cancelButton);
-    dialog.append(text, actions);
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
-
-    const hide = () => {
-      replaceButton.removeEventListener("click", handleReplace);
-      appendButton.removeEventListener("click", handleAppend);
-      cancelButton.removeEventListener("click", hide);
-      overlay.remove();
-    };
-
-    const handleReplace = () => {
-      hide();
-      onReplace();
-    };
-
-    const handleAppend = () => {
-      hide();
-      onAppend();
-    };
-
-    replaceButton.addEventListener("click", handleReplace);
-    appendButton.addEventListener("click", handleAppend);
-    cancelButton.addEventListener("click", hide);
-
-    cancelButton.focus();
-  };
-
-    const createRecordRow = (record) => {
-    const row = document.createElement("div");
-    row.className = "records-list__row records-list__grid";
-    row.dataset.recordId = String(record.id);
-
-    const createValidationMessage = (fieldKey) => {
-      const message = document.createElement("div");
-      message.className = "records-list__validation-message";
-      message.dataset.validationMessage = fieldKey;
-      return message;
-    };
-
-    const controlsCell = document.createElement("div");
-    controlsCell.className = "records-list__cell records-list__cell--controls";
-
-    const checkbox = document.createElement("input");
-    checkbox.className = "records-list__checkbox";
-    checkbox.type = "checkbox";
-    checkbox.checked = record.checked;
-    checkbox.addEventListener("change", (event) => {
-      record.checked = event.target.checked;
-      syncMasterCheckboxState();
+      updateSortHeaderIndicators();
+      renderRows();
     });
+    leftHeader.appendChild(cell);
+  });
+  updateSortHeaderIndicators();
 
-    const handle = document.createElement("span");
-    handle.className = "records-list__handle";
-    handle.setAttribute("aria-hidden", "true");
-    handle.textContent = "≡";
+  // Botones cabecera
+  root.querySelector(".import-btn")?.addEventListener("click", importCueSheet);
+  root.querySelector(".export-btn")?.addEventListener("click", exportCueSheet);
 
-    handle.addEventListener("mousedown", () => {
-      row.draggable = true;
-    });
-
-    handle.addEventListener("mouseup", () => {
-      if (!row.classList.contains("is-dragging")) {
-        row.draggable = false;
-      }
-    });
-
-    controlsCell.append(checkbox, handle);
-    row.appendChild(controlsCell);
-
-    const titleCell = document.createElement("div");
-    titleCell.className = "records-list__cell records-list__field-cell records-list__cell--stacked";
-    titleCell.dataset.col = "titulo";
-    const titleInput = document.createElement("input");
-    titleInput.className = "records-list__field dm-input";
-    titleInput.type = "text";
-    titleInput.maxLength = maxLength;
-    titleInput.value = record.title;
-    titleInput.placeholder = "";
-    titleInput.dataset.field = "title";
-     titleInput.addEventListener("input", (event) => {
-      record.title = event.target.value;
-      if (shouldApplyValidation(row)) {
-        applyValidationUI(row, validateRow(row).fieldErrors);
-      }
-    });
-    titleInput.addEventListener("blur", () => {
-      if (shouldApplyValidation(row)) {
-        applyValidationUI(row, validateRow(row).fieldErrors);
-      }
-    });
-    titleCell.append(titleInput, createValidationMessage("title"));
-    row.appendChild(titleCell);
-
-    const authorCell = document.createElement("div");
-    authorCell.className = "records-list__cell records-list__field-cell records-list__cell--stacked";
-    authorCell.dataset.col = "autor";
-    const authorInput = document.createElement("input");
-    authorInput.className = "records-list__field dm-input";
-    authorInput.type = "text";
-    authorInput.maxLength = maxLength;
-    authorInput.value = record.author;
-    authorInput.placeholder = "";
-    authorInput.dataset.field = "author";
-    authorInput.addEventListener("input", (event) => {
-      record.author = event.target.value;
-      if (shouldApplyValidation(row)) {
-        applyValidationUI(row, validateRow(row).fieldErrors);
-      }
-    });
-    authorInput.addEventListener("blur", () => {
-      if (shouldApplyValidation(row)) {
-        applyValidationUI(row, validateRow(row).fieldErrors);
-      }
-    });
-    authorCell.append(authorInput, createValidationMessage("author"));
-    row.appendChild(authorCell);
-    const performerCell = document.createElement("div");
-    performerCell.className = "records-list__cell records-list__field-cell";
-    performerCell.dataset.col = "interprete";
-    const performerInput = document.createElement("input");
-    performerInput.className = "records-list__field dm-input";
-    performerInput.type = "text";
-    performerInput.maxLength = maxLength;
-    performerInput.value = record.performer || "";
-    performerInput.placeholder = "";
-    performerInput.dataset.field = "performer";
-    performerInput.addEventListener("input", (event) => {
-      record.performer = event.target.value;
-    });
-    performerCell.appendChild(performerInput);
-    row.appendChild(performerCell);
-
-    const timingGroup = document.createElement("div");
-    timingGroup.className = "records-list__cell records-list__timing-group";
-
-    const timingFields = document.createElement("div");
-    timingFields.className = "records-list__timing-fields";
-
-    const tcInCell = document.createElement("div");
-    tcInCell.className = "records-list__cell records-list__cell--time-wrapper";
-    tcInCell.dataset.col = "tc_in";
-    const tcInDisplay = document.createElement("div");
-    tcInDisplay.className = "records-list__cell records-list__cell--time records-list__time-display";
-    tcInDisplay.dataset.field = "tcIn";
-    tcInDisplay.dataset.role = "time-cell";
-    tcInDisplay.tabIndex = 0;
-    tcInDisplay.textContent = getTimeDisplayValue(record.tcIn);
-    if (record.tcIn) {
-      tcInDisplay.dataset.timeValue = String(record.tcIn);
+  // Botón info y cierre del modal
+  root.querySelector(".info-btn")?.addEventListener("click", openInfoModal);
+  root.querySelector(".info-modal__close")?.addEventListener("click", closeInfoModal);
+  root.querySelector(".info-overlay")?.addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) closeInfoModal(); // clic en overlay = cerrar
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.body.classList.contains("info-modal-open")) {
+      closeInfoModal();
     }
-    tcInCell.append(tcInDisplay);
-
-    const tcOutCell = document.createElement("div");
-    tcOutCell.className = "records-list__cell records-list__cell--time-wrapper";
-    tcOutCell.dataset.col = "tc_out";
-    const tcOutDisplay = document.createElement("div");
-    tcOutDisplay.className = "records-list__cell records-list__cell--time records-list__time-display";
-    tcOutDisplay.dataset.field = "tcOut";
-    tcOutDisplay.dataset.role = "time-cell";
-    tcOutDisplay.tabIndex = 0;
-    tcOutDisplay.textContent = getTimeDisplayValue(record.tcOut);
-    if (record.tcOut) {
-      tcOutDisplay.dataset.timeValue = String(record.tcOut);
-    }
-    tcOutCell.append(tcOutDisplay);
-
-    const durationCell = document.createElement("div");
-    durationCell.className = "records-list__cell";
-    durationCell.dataset.col = "duracion";
-    const durationValue =
-      record.duration && isTimeString(record.duration)
-        ? record.duration
-        : calculateDuration(record.tcIn, record.tcOut);
-    record.duration = durationValue;
-    durationCell.textContent = getTimeDisplayValue(durationValue);
-
-    const timingErrorSlot = document.createElement("div");
-    timingErrorSlot.className =
-      "records-list__validation-message records-list__validation-message--timing";
-    timingErrorSlot.dataset.errorSlot = "timing";
-
-    timingFields.append(tcInCell, tcOutCell, durationCell);
-    timingGroup.append(timingFields, timingErrorSlot);
-    row.appendChild(timingGroup);
-
-
-    const modalityCell = document.createElement("div");
-    modalityCell.className = "records-list__cell records-list__field-cell records-list__cell--stacked";
-    modalityCell.dataset.col = "modalidad";
-    const modalitySelect = document.createElement("select");
-    modalitySelect.className = "records-list__field";
-    modalitySelect.dataset.field = "modality";
-    const modalityPlaceholder = document.createElement("option");
-    modalityPlaceholder.value = "";
-    modalityPlaceholder.textContent = "";
-    modalitySelect.appendChild(modalityPlaceholder);
-    ["AMBIENTACIONES", "CARETAS", "FONDOS", "SINFÓNICOS", "VARIEDADES"].forEach((optionLabel) => {
-      const option = document.createElement("option");
-      option.value = optionLabel;
-      option.textContent = optionLabel;
-      modalitySelect.appendChild(option);
-    });
-    modalitySelect.value = record.modality ?? "";
-    modalitySelect.addEventListener("change", (event) => {
-      record.modality = event.target.value;
-      if (shouldApplyValidation(row)) {
-        applyValidationUI(row, validateRow(row).fieldErrors);
-      }
-    });
-    modalityCell.append(modalitySelect, createValidationMessage("modality"));
-    row.appendChild(modalityCell);
-
-    const musicTypeCell = document.createElement("div");
-    musicTypeCell.className = "records-list__cell records-list__field-cell records-list__cell--stacked";
-    musicTypeCell.dataset.col = "tipo_musica";
-    const musicTypeSelect = document.createElement("select");
-    musicTypeSelect.className = "records-list__field";
-    musicTypeSelect.dataset.field = "musicType";
-    const musicTypePlaceholder = document.createElement("option");
-    musicTypePlaceholder.value = "";
-    musicTypePlaceholder.textContent = "";
-    musicTypeSelect.appendChild(musicTypePlaceholder);
-    ["LIBRERÍA", "COMERCIAL", "ORIGINAL"].forEach((optionLabel) => {
-      const option = document.createElement("option");
-      option.value = optionLabel;
-      option.textContent = optionLabel;
-      musicTypeSelect.appendChild(option);
-    });
-    musicTypeSelect.value = record.musicType ?? "";
-    musicTypeSelect.addEventListener("change", (event) => {
-      record.musicType = event.target.value;
-      if (shouldApplyValidation(row)) {
-        applyValidationUI(row, validateRow(row).fieldErrors);
-      }
-    });
-    musicTypeCell.append(musicTypeSelect, createValidationMessage("musicType"));
-    row.appendChild(musicTypeCell);
-
-    const libraryCodeCell = document.createElement("div");
-    libraryCodeCell.className = "records-list__cell records-list__field-cell";
-    libraryCodeCell.dataset.col = "codigo_libreria";
-    const libraryCodeInput = document.createElement("input");
-    libraryCodeInput.className = "records-list__field dm-input";
-    libraryCodeInput.type = "text";
-    libraryCodeInput.maxLength = maxLength;
-    libraryCodeInput.value = record.libraryCode || "";
-    libraryCodeInput.placeholder = "";
-    libraryCodeInput.dataset.field = "libraryCode";
-    libraryCodeInput.addEventListener("input", (event) => {
-      record.libraryCode = event.target.value;
-    });
-    libraryCodeCell.appendChild(libraryCodeInput);
-    row.appendChild(libraryCodeCell);
-
-    const libraryNameCell = document.createElement("div");
-    libraryNameCell.className = "records-list__cell records-list__field-cell";
-    libraryNameCell.dataset.col = "nombre_libreria";
-    const libraryNameInput = document.createElement("input");
-    libraryNameInput.className = "records-list__field dm-input";
-    libraryNameInput.type = "text";
-    libraryNameInput.maxLength = maxLength;
-    libraryNameInput.value = record.libraryName || "";
-    libraryNameInput.placeholder = "";
-    libraryNameInput.dataset.field = "libraryName";
-    libraryNameInput.addEventListener("input", (event) => {
-      record.libraryName = event.target.value;
-    });
-    libraryNameCell.appendChild(libraryNameInput);
-    row.appendChild(libraryNameCell);
-
-    row.addEventListener("dragstart", (event) => {
-      draggedRow = row;
-      row.classList.add("is-dragging");
-      dragPlaceholder.style.height = `${row.offsetHeight}px`;
-      event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setData("text/plain", row.dataset.recordId || "");
-    });
-
-    row.addEventListener("dragend", () => {
-      clearDragState();
-    });
-
-    row.dataset.validationTouched = record.validationTouched ? "1" : "0";
-    if (shouldApplyValidation(row)) {
-      applyValidationUI(row, validateRow(row).fieldErrors);
-    } else {
-      resetValidationUI(row);
-    }
-
-    return row;
-  };
-  const clearDropIndicator = () => {
-    if (dropTargetRow) {
-      dropTargetRow.classList.remove("drop-before", "drop-after");
-      dropTargetRow = null;
-    }
-  };
-
-  const clearDragState = () => {
-    clearDropIndicator();
-    dragPlaceholder.remove();
-    if (draggedRow) {
-      draggedRow.classList.remove("is-dragging");
-      draggedRow.draggable = false;
-      draggedRow = null;
-    }
-  };
-
-  const getNearestRow = (clientX, clientY) => {
-    const hovered = document
-      .elementFromPoint(clientX, clientY)
-      ?.closest(".records-list__row");
-    if (hovered && hovered !== draggedRow && hovered !== dragPlaceholder) {
-      return hovered;
-    }
-
-    let nearestRow = null;
-    let nearestDistance = Infinity;
-    const rows = recordsBody.querySelectorAll(".records-list__row");
-
-    rows.forEach((row) => {
-      if (row === draggedRow || row === dragPlaceholder) {
-        return;
-      }
-      const rect = row.getBoundingClientRect();
-      const rowMiddle = rect.top + rect.height / 2;
-      const distance = Math.abs(clientY - rowMiddle);
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestRow = row;
-      }
-    });
-
-    return nearestRow;
-  };
-
-  const syncRecordsOrderFromDom = () => {
-    const recordById = new Map(records.map((record) => [record.id, record]));
-    const orderedRecords = [];
-
-    recordsBody.querySelectorAll(".records-list__row").forEach((row) => {
-      if (row === dragPlaceholder) {
-        return;
-      }
-      const recordId = Number(row.dataset.recordId);
-      const record = recordById.get(recordId);
-      if (record) {
-        orderedRecords.push(record);
-      }
-    });
-
-    records.splice(0, records.length, ...orderedRecords);
-  };
-
-  const updateMinusButtonState = () => {
-    minusButton.disabled = records.length <= 1;
-  };
-
-  const updateMasterCheckboxTooltip = () => {
-    if (!masterRecordsCheckbox) {
-      return;
-    }
-
-    const tooltipText = masterRecordsCheckbox.checked
-      ? "Deseleccionar todas las filas"
-      : "Seleccionar todas las filas";
-    if (masterRecordsCheckboxTooltip) {
-      masterRecordsCheckboxTooltip.setAttribute("data-tooltip", tooltipText);
-    }
-  };
-
-  const syncMasterCheckboxState = () => {
-    if (!masterRecordsCheckbox) {
-      return;
-    }
-
-    masterRecordsCheckbox.checked = records.length > 0 && records.every((record) => record.checked);
-    updateMasterCheckboxTooltip();
-  };
-
-  const updateRecordTimeValue = (cell, value) => {
-    if (!cell) {
-      return;
-    }
-    const row = cell.closest(".records-list__row");
-    const recordId = Number(row?.dataset.recordId);
-    if (!recordId) {
-      return;
-    }
-    const record = records.find((entry) => entry.id === recordId);
-    const field = cell.dataset.field;
-    if (!record || !field) {
-      return;
-    }
-    record[field] = value;
-    if (row) {
-      const durationValue = calculateDuration(record.tcIn, record.tcOut);
-      record.duration = durationValue;
-      const durationCell = row.querySelector('[data-col="duracion"]');
-      if (durationCell) {
-        durationCell.textContent = getTimeDisplayValue(durationValue);
-      }
-      if (shouldApplyValidation(row)) {
-        applyValidationUI(row, validateRow(row).fieldErrors);
-      }
-    }
-  };
-
-  const getFieldValue = (row, fieldKey) => {
-    const field = row.querySelector(`[data-field="${fieldKey}"]`);
-    if (!field) {
-      return "";
-    }
-    if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) {
-      return field.value;
-    }
-    return field.dataset.timeValue || field.textContent || "";
-  };
-
-  const validateRow = (row) => {
-    const fieldErrors = {};
-    const titleValue = getFieldValue(row, "title").trim();
-    if (!titleValue) {
-      fieldErrors.title = "OBLIGATORIO";
-    }
-    const authorValue = getFieldValue(row, "author").trim();
-    if (!authorValue) {
-      fieldErrors.author = "OBLIGATORIO";
-    }
-    const modalityValue = getFieldValue(row, "modality").trim();
-    if (!modalityValue) {
-      fieldErrors.modality = "OBLIGATORIO";
-    }
-    const musicTypeValue = getFieldValue(row, "musicType").trim();
-    if (!musicTypeValue) {
-      fieldErrors.musicType = "OBLIGATORIO";
-    }
-
-    const tcInValue = getFieldValue(row, "tcIn").trim();
-    const tcOutValue = getFieldValue(row, "tcOut").trim();
-    const tcInValid = isValidTimeFormat(tcInValue);
-    const tcOutValid = isValidTimeFormat(tcOutValue);
-
-    if (!tcInValid) {
-      fieldErrors.tcIn = "Formato inválido (HH:MM:SS)";
-    }
-    if (!tcOutValid) {
-      fieldErrors.tcOut = "Formato inválido (HH:MM:SS)";
-    }
-
-    if (tcInValid && tcOutValid) {
-      const inSeconds = parseTimeToSeconds(tcInValue);
-      const outSeconds = parseTimeToSeconds(tcOutValue);
-      if (inSeconds !== null && outSeconds !== null && outSeconds <= inSeconds) {
-        fieldErrors.tcOut = "TC-OUT DEBE SER MAYOR QUE TC-IN";
-      }
-    }
-
-    return { fieldErrors, hasErrors: Object.keys(fieldErrors).length > 0 };
-  };
-
-  const applyValidationUI = (row, fieldErrors) => {
-    const fields = ["title", "author", "modality", "musicType", "tcIn", "tcOut"];
-    const messageFields = ["title", "author", "modality", "musicType"];
-
-    fields.forEach((fieldKey) => {
-      const field = row.querySelector(`[data-field="${fieldKey}"]`);
-      const errorMessage = fieldErrors[fieldKey];
-      if (field) {
-        field.classList.toggle("is-error", Boolean(errorMessage));
-      }
-    });
-
-    messageFields.forEach((fieldKey) => {
-      const message = row.querySelector(`[data-validation-message="${fieldKey}"]`);
-      const errorMessage = fieldErrors[fieldKey];
-      if (message) {
-        message.textContent = errorMessage || "";
-        message.classList.toggle("is-visible", Boolean(errorMessage));
-      }
-    });
-
-    const timingMessage = row.querySelector('[data-error-slot="timing"]');
-    const timingError = fieldErrors.tcOut || fieldErrors.tcIn || "";
-    if (timingMessage) {
-      timingMessage.textContent = timingError;
-      timingMessage.classList.toggle("is-visible", Boolean(timingError));
-    }
-  };
-
-  const resetValidationUI = (row) => {
-    const fields = ["title", "author", "modality", "musicType", "tcIn", "tcOut"];
-    const messageFields = ["title", "author", "modality", "musicType"];
-
-    fields.forEach((fieldKey) => {
-      const field = row.querySelector(`[data-field="${fieldKey}"]`);
-      field?.classList.remove("is-error");
-    });
-
-    messageFields.forEach((fieldKey) => {
-      const message = row.querySelector(`[data-validation-message="${fieldKey}"]`);
-      if (message) {
-        message.textContent = "";
-        message.classList.remove("is-visible");
-      }
-    });
-
-    const timingMessage = row.querySelector('[data-error-slot="timing"]');
-    if (timingMessage) {
-      timingMessage.textContent = "";
-      timingMessage.classList.remove("is-visible");
-    }
-  };
-
-  const isRowValidationTouched = (row) => row.dataset.validationTouched === "1";
-
-  const shouldApplyValidation = (row) => validationArmed && isRowValidationTouched(row);
-
-  const markRowValidationTouched = (row) => {
-    row.dataset.validationTouched = "1";
-    const recordId = Number(row.dataset.recordId);
-    if (recordId) {
-      const record = records.find((entry) => entry.id === recordId);
-      if (record) {
-        record.validationTouched = true;
-      }
-    }
-  };
-
-  const validateAllRows = ({ applyUI = false } = {}) => {
-    const rows = Array.from(recordsBody.querySelectorAll(".records-list__row"));
-    let hasErrors = false;
-    rows.forEach((row) => {
-      const { fieldErrors, hasErrors: rowHasErrors } = validateRow(row);
-      if (rowHasErrors) {
-        hasErrors = true;
-      }
-      if (applyUI && isRowValidationTouched(row)) {
-        applyValidationUI(row, fieldErrors);
-      } else if (applyUI) {
-        resetValidationUI(row);
-      }
-    });
-    return { hasErrors };
-  };
-  
-  const renderRecords = () => {
-    recordsBody.innerHTML = "";
-    records.forEach((record) => {
-      recordsBody.appendChild(createRecordRow(record));
-    });
-    updateMinusButtonState();
-    syncMasterCheckboxState();
-  };
-
-  const addEmptyRecord = () => {
-    records.push(createEmptyRecord());
-    renderRecords();
-
-    const lastRow = recordsBody.lastElementChild;
-    if (lastRow) {
-      lastRow.scrollIntoView({ behavior: "smooth", block: "end" });
-    }
-    recordsViewport.scrollTop = recordsViewport.scrollHeight;
-  };
-
-    const removeSelectedRecords = () => {
-    if (minusButton.disabled) {
-      return;
-    }
-
-    const hasSelectedRecords = records.some((record) => record.checked);
-    if (!hasSelectedRecords) {
-      showDeleteWarningModal();
-      return;
-    }
-
-    const selectedCount = records.filter((record) => record.checked).length;
-
-    showDeleteConfirmationModal(selectedCount, () => {
-      const previousScrollTop = recordsViewport.scrollTop;
-      const selectedRowsSnapshot = [];
-
-      records.forEach((record, index) => {
-        if (record.checked) {
-          const row = recordsBody.children[index];
-          selectedRowsSnapshot.push({
-            index,
-            record: { ...record },
-            outerHTML: row ? row.outerHTML : "",
-          });
-        }
-      });
-
-      lastDeleteSnapshot = {
-        rows: selectedRowsSnapshot,
-        createdSafetyRow: false,
-      };
-
-      for (let index = records.length - 1; index >= 0; index -= 1) {
-        if (records[index].checked) {
-          records.splice(index, 1);
-        }
-      }
-
-      if (records.length === 0) {
-        records.unshift(createEmptyRecord());
-        lastDeleteSnapshot.createdSafetyRow = true;
-      }
-
-      renderRecords();
-      recordsViewport.scrollTop = Math.min(previousScrollTop, recordsViewport.scrollHeight);
-      updateBackButtonState();
-    });
-  };
-
-  const undoLastDelete = () => {
-    if (!lastDeleteSnapshot) {
-      return;
-    }
-
-    if (lastDeleteSnapshot.createdSafetyRow && records.length === 1) {
-      records.splice(0, 1);
-    }
-
-    lastDeleteSnapshot.rows.forEach(({ index, record }, restoredCount) => {
-      records.splice(Math.min(index + restoredCount, records.length), 0, record);
-      nextRecordId = Math.max(nextRecordId, record.id + 1);
-    });
-
-    lastDeleteSnapshot = null;
-    renderRecords();
-    updateBackButtonState();
-  };
-
-  addEmptyRecord();
-  updateBackButtonState();
-  plusButton.addEventListener("click", addEmptyRecord);
-  minusButton.addEventListener("click", removeSelectedRecords);
-
-  if (masterRecordsCheckbox) {
-    masterRecordsCheckbox.addEventListener("change", () => {
-      const shouldSelectAll = !records.every((record) => record.checked);
-      records.forEach((record) => {
-        record.checked = shouldSelectAll;
-      });
-      renderRecords();
-    });
-  }
-
-  recordsBody.addEventListener("dragover", (event) => {
-    if (!draggedRow) {
-      return;
-    }
-
-    event.preventDefault();
-    const targetRow = getNearestRow(event.clientX, event.clientY);
-    if (!targetRow) {
-      return;
-    }
-
-    clearDropIndicator();
-    dropTargetRow = targetRow;
-
-    const targetRect = targetRow.getBoundingClientRect();
-    const isAfter = event.clientY >= targetRect.top + targetRect.height / 2;
-    targetRow.classList.add(isAfter ? "drop-after" : "drop-before");
-
-    if (isAfter) {
-      targetRow.insertAdjacentElement("afterend", dragPlaceholder);
-    } else {
-      targetRow.insertAdjacentElement("beforebegin", dragPlaceholder);
-    }
+  }, { once: false });
+
+  // Limpiar error de exportación en título de programa al escribir
+  root.querySelector("#input-titulo-programa")?.addEventListener("input", (e) => {
+    e.target.classList.remove("has-export-error");
+    e.target.placeholder = "";
+    e.target.parentNode.querySelector(".export-required-label")?.remove();
   });
 
-  recordsBody.addEventListener("drop", (event) => {
-    if (!draggedRow || !dragPlaceholder.parentElement) {
-      return;
-    }
+  // Grid interactividad
+  renderRows();
+  const gridRoot = root.querySelector(".month-block__body-grid");
+  gridRoot?.addEventListener("keydown", handleGridEnterKey);
+  gridRoot?.addEventListener("paste", handleGridPaste);
+  gridRoot?.addEventListener("pointerdown", handleGridPointerDown);
+  document.addEventListener("pointermove", handleGridPointerMove);
+  document.addEventListener("pointerup", handleGridPointerUp);
+  document.addEventListener("pointercancel", handleGridPointerCancel);
+  gridRoot?.addEventListener("click", handleGridClickCapture, true);
+  if (!IS_VIEWER_MODE) ensureFillHandleElement();
 
-    event.preventDefault();
-    recordsBody.insertBefore(draggedRow, dragPlaceholder);
-    syncRecordsOrderFromDom();
-    renderRecords();
-    clearDragState();
+  window.addEventListener("resize", () => {
+    syncFillHandlePosition();
+    syncCopyAntsPosition();
   });
+}
 
-  recordsBody.addEventListener("dragleave", (event) => {
-    if (!draggedRow) {
-      return;
-    }
-    if (!recordsBody.contains(event.relatedTarget)) {
-      clearDropIndicator();
-      dragPlaceholder.remove();
-    }
-  });
-
-  recordsViewport.addEventListener(
-    "focusin",
-    (event) => {
-      const headerSource = resolveHeaderSourceFromFocus(event.target);
-      if (!headerSource) {
-        return;
-      }
-      updateActiveHeaderFromTarget(headerSource);
-    },
-    true
-  );
-
-  recordsViewport.addEventListener(
-    "focusout",
-    () => {
-      window.setTimeout(() => {
-        const activeElement = document.activeElement;
-        if (isEditableFocusWithinRecords(activeElement)) {
-          const headerSource = resolveHeaderSourceFromFocus(activeElement);
-          if (headerSource) {
-            updateActiveHeaderFromTarget(headerSource);
-          }
-          return;
-        }
-        clearActiveHeaderCell();
-      }, 0);
-    },
-    true
-  );
-
-  recordsBody.addEventListener("focusin", (event) => {
-    const input = event.target.closest(".dm-input");
-    if (!input || shouldSkipFocusOpen) {
-      shouldSkipFocusOpen = false;
-      return;
-    }
-
-    if (activeEditorTarget && activeEditorTarget !== input) {
-      closeOverlay();
-    }
-
-    openOverlayForInput(input);
-  });
-
-  recordsBody.addEventListener("mousedown", (event) => {
-    const input = event.target.closest(".dm-input");
-    if (!input) {
-      return;
-    }
-
-    event.preventDefault();
-    input.focus();
-  });
-
-  recordsBody.addEventListener("click", (event) => {
-    const timeCell = event.target.closest('[data-role="time-cell"]');
-    if (!timeCell) {
-      return;
-    }
-    openTimeOverlay(timeCell);
-  });
-
-  recordsBody.addEventListener("focusin", (event) => {
-    const timeCell = event.target.closest('[data-role="time-cell"]');
-    if (!timeCell) {
-      return;
-    }
-    window.setTimeout(() => {
-      if (document.activeElement === timeCell) {
-        openTimeOverlay(timeCell);
-      }
-    }, 0);
-  });
-
-  recordsBody.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter") {
-      return;
-    }
-    const timeCell = event.target.closest('[data-role="time-cell"]');
-    if (!timeCell) {
-      return;
-    }
-    openTimeOverlay(timeCell);
-  });
-
-  overlayInput.addEventListener("focusin", () => {
-    if (activeEditorTarget) {
-      updateActiveHeaderFromTarget(activeEditorTarget);
-    }
-  });
-
-  overlayInput.addEventListener("blur", () => {
-    window.setTimeout(() => {
-      if (
-        recordsViewport.contains(document.activeElement) ||
-        (activeTimeOverlay && activeTimeOverlay.contains(document.activeElement))
-      ) {
-        return;
-      }
-      clearActiveHeaderCell();
-    }, 0);
-  });
-
-  overlayInput.addEventListener("input", () => {
-    if (!activeEditorTarget) {
-      return;
-    }
-    activeEditorTarget.value = overlayInput.value;
-    activeEditorTarget.dispatchEvent(new Event("input", { bubbles: true }));
-    if (overlayInput.value.length < maxLength) {
-      overlayOverflowAttempted = false;
-    }
-    syncOverlayValidation();
-    updateOverlayPosition();
-  });
-
-  overlayInput.addEventListener("beforeinput", (event) => {
-    if (!activeEditorTarget || event.isComposing) {
-      return;
-    }
-
-    if (!event.inputType.startsWith("insert")) {
-      return;
-    }
-
-    const insertedText = event.data ?? "";
-    const selectedLength = getSelectionLength(overlayInput);
-    const nextLength = overlayInput.value.length - selectedLength + insertedText.length;
-
-    if (nextLength > maxLength) {
-      event.preventDefault();
-      overlayOverflowAttempted = true;
-      syncOverlayValidation();
-    }
-  });
-
-  overlayInput.addEventListener("paste", (event) => {
-    if (!activeEditorTarget) {
-      return;
-    }
-
-    event.preventDefault();
-    const clipboardText = event.clipboardData?.getData("text") ?? "";
-    const selectedLength = getSelectionLength(overlayInput);
-    const available = maxLength - (overlayInput.value.length - selectedLength);
-    const safeAvailable = Math.max(0, available);
-    const allowedText = clipboardText.slice(0, safeAvailable);
-
-    overlayInput.setRangeText(allowedText, overlayInput.selectionStart ?? 0, overlayInput.selectionEnd ?? 0, "end");
-    overlayInput.dispatchEvent(new Event("input", { bubbles: true }));
-
-    if (clipboardText.length > allowedText.length) {
-      overlayOverflowAttempted = true;
-      syncOverlayValidation();
-    }
-  });
-
-  overlayInput.addEventListener("keydown", (event) => {
-    if (!activeEditorTarget) {
-      return;
-    }
-
-    if (event.key === "Tab") {
-      const delta = event.shiftKey ? -1 : 1;
-      const nextControl = getNextRowEditableControl({
-        sourceElement: activeEditorTarget,
-        direction: delta,
-      });
-      if (!nextControl) {
-        event.preventDefault();
-        const inputToBlur = activeEditorTarget;
-        closeOverlay();
-        inputToBlur?.blur();
-        return;
-      }
-
-      event.preventDefault();
-      closeOverlay();
-      nextControl.focus();
-      return;
-    }
-
-    if (event.key === "Enter") {
-      event.preventDefault();
-      const inputToBlur = activeEditorTarget;
-      closeOverlay();
-      shouldSkipFocusOpen = true;
-      inputToBlur?.blur();
-      return;
-    }
-
-    if (event.key === "Escape") {
-      event.preventDefault();
-      const inputToBlur = activeEditorTarget;
-      closeOverlay({ cancel: true });
-      shouldSkipFocusOpen = true;
-      inputToBlur?.blur();
-    }
-  });
-
-  overlayInput.addEventListener("blur", () => {
-    closeOverlay();
-  });
-
-  recordsBody.addEventListener("keydown", (event) => {
-    if (event.key !== "Tab") {
-      return;
-    }
-    
-    if (event.defaultPrevented) {
-      return;
-    }
-
-    const control = event.target.closest(
-      'select[data-field], [data-role="time-cell"][data-field]'
-    );
-    if (!control) {
-      return;
-    }
-
-        const isTimeControl = control.matches('[data-role="time-cell"][data-field]');
-    if (isTimeControl && activeTimeOverlay && activeTimeCell === control) {
-      return;
-    }
-
-    const delta = event.shiftKey ? -1 : 1;
-    const nextControl = getNextRowEditableControl({
-      sourceElement: control,
-      direction: delta,
-    });
-
-    if (!nextControl) {
-      return;
-    }
-
-    event.preventDefault();
-    nextControl.focus();
-  });
-
-  window.addEventListener("resize", updateOverlayPosition);
-  recordsViewport.addEventListener("scroll", updateOverlayPosition);
-
-  if (backButton) {
-    backButton.addEventListener("click", undoLastDelete);
-  }
-
-  const importInput = document.createElement("input");
-  importInput.type = "file";
-  importInput.accept = ".xlsx,.xlsm";
-  importInput.hidden = true;
-  document.body.appendChild(importInput);
-
-  const isRecordEmpty = (record) => {
-    const textValues = [
-      record.title,
-      record.author,
-      record.performer,
-      record.libraryCode,
-      record.libraryName,
-    ];
-    const selectValues = [record.modality, record.musicType];
-    const hasText = textValues.some((value) => String(value ?? "").trim() !== "");
-    const hasSelection = selectValues.some((value) => String(value ?? "").trim() !== "");
-    const hasCustomTiming =
-      record.tcIn !== TIME_PLACEHOLDER || record.tcOut !== TIME_PLACEHOLDER;
-    return !hasText && !hasSelection && !hasCustomTiming;
-  };
-
-  const hasExistingData = () => {
-    if (programInput?.value.trim() || episodeInput?.value.trim()) {
-      return true;
-    }
-    if (records.length > 1) {
-      return true;
-    }
-    return records.some((record) => !isRecordEmpty(record));
-  };
-
-  const normalizeCellValue = (value) => {
-    if (value === null || value === undefined) {
-      return "";
-    }
-    if (value instanceof Date) {
-      return value.toISOString();
-    }
-    return String(value);
-  };
-
-  const loadImportWorkbook = async (file) => {
-    if (!window.XlsxPopulate) {
-      throw new Error("XlsxPopulate no está disponible.");
-    }
-    const arrayBuffer = await file.arrayBuffer();
-    return window.XlsxPopulate.fromDataAsync(arrayBuffer);
-  };
-
-const normalizeSelectValue = (value, validOptions) => {
-  const trimmed = value.trim();
-  const match = validOptions.find(
-    (option) => option.toLowerCase() === trimmed.toLowerCase()
-  );
-  return match ?? "";
-};
-  
-  const buildRecordsFromSheet = (sheet) => {
-    const startRow = 10;
-    const usedRange = sheet.usedRange();
-    const lastUsedRow = usedRange ? usedRange.endCell().rowNumber() : startRow;
-    const lastRow = Math.max(startRow, lastUsedRow);
-    const rows = sheet.range(`B${startRow}:K${lastRow}`).value();
-    const importedRecords = [];
-
-    rows.forEach((row) => {
-      const rowValues = row.map((value) => normalizeCellValue(value));
-      const hasValues = rowValues.some((value) => value.trim() !== "");
-      if (!hasValues) {
-        return;
-      }
-const [
-        title,
-        author,
-        performer,
-        duration,
-        tcIn,
-        tcOut,
-        modality,
-        musicType,
-        libraryCode,
-        libraryName,
-      ] = rowValues;
-
-      importedRecords.push({
-        id: nextRecordId++,
-        checked: false,
-        validationTouched: false,
-        title: title.trim(),
-        author: author.trim(),
-        performer: performer.trim(),
-        tcIn: tcIn.trim() || TIME_PLACEHOLDER,
-        tcOut: tcOut.trim() || TIME_PLACEHOLDER,
-        duration: duration.trim(),
-        modality: normalizeSelectValue(modality, ["AMBIENTACIONES", "CARETAS", "FONDOS", "SINFÓNICOS", "VARIEDADES"]),
-        musicType: normalizeSelectValue(musicType, ["LIBRERÍA", "COMERCIAL", "ORIGINAL"]),
-        libraryCode: libraryCode.trim(),
-        libraryName: libraryName.trim(),
-      });
-    });
-
-    return importedRecords;
-  };
-
-  const applyImportedData = ({ workbook, mode }) => {
-    const sheet = workbook.sheet("MODULOSGAE");
-    if (!sheet) {
-      throw new Error("No se encontró la hoja MODULOSGAE en el Excel importado.");
-    }
-
-const importedProgramTitle = normalizeCellValue(sheet.cell("F4").value()).trim();
-    const importedEpisode = normalizeCellValue(sheet.cell("H4").value()).trim();
-    const importedRecords = buildRecordsFromSheet(sheet);
-
-    if (mode === "replace") {
-      records.splice(0, records.length, ...importedRecords);
-      if (records.length === 0) {
-        records.push(createEmptyRecord());
-      }
-      if (programInput) {
-        programInput.value = importedProgramTitle;
-      }
-      if (episodeInput) {
-        episodeInput.value = importedEpisode;
-      }
-    } else if (mode === "append") {
-      records.push(...importedRecords);
-      if (programInput && !programInput.value.trim()) {
-        programInput.value = importedProgramTitle;
-      }
-      if (episodeInput && !episodeInput.value.trim()) {
-        episodeInput.value = importedEpisode;
-      }
-    }
-
-    updateProgramTitleRequiredState?.();
-
-    renderRecords();
-    updateBackButtonState();
-  };
-
-  const handleImport = async (file, mode) => {
-    try {
-      const workbook = await loadImportWorkbook(file);
-      applyImportedData({ workbook, mode });
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  if (importButton) {
-    importButton.addEventListener("click", () => {
-      importInput.click();
-    });
-  }
-
-  importInput.addEventListener("change", async (event) => {
-    const input = event.target;
-    const file = input.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    const proceed = (mode) => handleImport(file, mode);
-
-    if (hasExistingData()) {
-      showImportConfirmationModal({
-        onReplace: () => proceed("replace"),
-        onAppend: () => proceed("append"),
-      });
-    } else {
-      proceed("replace");
-    }
-
-    input.value = "";
-  });
-
-  const handleExportExcel = async () => {
-    if (!window.XlsxPopulate) {
-      console.error("XlsxPopulate no está disponible.");
-      return;
-    }
-
-    try {
-      const response = await fetch("assets/excel/plantilla_cue_sheet_v3_NUBE.xlsm");
-      if (!response.ok) {
-        throw new Error("No se pudo cargar la plantilla de Excel.");
-      }
-      const arrayBuffer = await response.arrayBuffer();
-      const workbook = await window.XlsxPopulate.fromDataAsync(arrayBuffer);
-      const sheet = workbook.sheet("MODULOSGAE");
-      if (!sheet) {
-        throw new Error("No se encontró la hoja MODULOSGAE en la plantilla.");
-      }
-
-      sheet.cell("C4").value(programInput?.value || "");
-      const rawEpisodeValue = episodeInput?.value || "";
-      const trimmedEpisodeValue = rawEpisodeValue.trim();
-      let exportEpisodeValue = trimmedEpisodeValue;
-      if (trimmedEpisodeValue && /^\d+$/.test(trimmedEpisodeValue)) {
-        exportEpisodeValue = trimmedEpisodeValue.startsWith("0")
-          ? trimmedEpisodeValue
-          : Number(trimmedEpisodeValue);
-      }
-      sheet.cell("H4").value(exportEpisodeValue);
-
-      const startRow = 10;
-      const startColumn = "B";
-      const endColumn = "K";
-      const totalRows = startRow + records.length - 1;
-
-      const rowsPayload = Array.from({ length: totalRows - startRow + 1 }, () =>
-        new Array(10).fill("")
-      );
-
-      records.forEach((record, index) => {
-      const rowValues = [
-          record.title || "",
-          record.author || "",
-          record.performer || "",
-          resolveDurationForExport(record.tcIn, record.tcOut),
-          record.tcIn || "",
-          record.tcOut || "",
-          record.modality || "",
-          record.musicType || "",
-          record.libraryCode || "",
-          record.libraryName || "",
-        ];
-        rowsPayload[index] = rowValues;
-      });
-
-      sheet
-        .range(`${startColumn}${startRow}:${endColumn}${totalRows}`)
-        .value(rowsPayload);
-
-      const blob = await workbook.outputAsync("blob");
-      const downloadUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.download = buildExportFilename();
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(downloadUrl);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  if (generateButton) {
-    generateButton.addEventListener("click", () => {
-      validationArmed = true;
-      const isProgramTitleValid =
-        typeof updateProgramTitleRequiredState === "function"
-          ? updateProgramTitleRequiredState({ markTouched: true })
-          : true;
-      recordsBody.querySelectorAll(".records-list__row").forEach((row) => {
-        markRowValidationTouched(row);
-      });
-      const { hasErrors } = validateAllRows({ applyUI: true });
-      if (hasErrors || !isProgramTitleValid) {
-        return;
-      }
-      setTimeout(() => {
-        handleExportExcel();
-      }, 0);
-    });
-  }
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+renderApp(document.getElementById("app"));
