@@ -2383,13 +2383,12 @@ function extractMetadataFromMatrix(matrix, headerRowIndex) {
     for (let j = 0; j < row.length - 1; j++) {
       const token = normalizeHeaderToken(`${row[j] ?? ""}`);
       if (!token) continue;
-      const nextVal = `${row[j + 1] ?? ""}`.trim();
-      if (!nextVal) continue;
       if (!tituloProg && TITULO_TOKENS.some((t) => token.includes(t))) {
-        tituloProg = nextVal;
+        const v = `${row[j + 1] ?? ""}`.trim();
+        if (v) tituloProg = v;
       }
       if (!capitulo && CAPITULO_TOKENS.some((t) => token.includes(t))) {
-        // El valor puede estar en la misma celda contigua o más adelante en la fila
+        // El valor puede estar más adelante en la misma fila (G4 vacía, valor en H4)
         for (let k = j + 1; k < row.length; k++) {
           const v = `${row[k] ?? ""}`.trim();
           if (v) { capitulo = v; break; }
@@ -2695,7 +2694,10 @@ async function exportCueSheet() {
     .normalize("NFD").replace(/\p{Diacritic}/gu, "")
     .toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
   const fileName   = `${safeTitle}_CUE_SHEET.xlsx`;
-  const dataRows   = blocks[0].rows.filter((row) => !isPlaceholderRow(row));
+  const _block0    = blocks[0];
+  const dataRows   = getOrderedRowsForMonth(_block0)
+    .map((item) => item.row)
+    .filter((row) => !isPlaceholderRow(row));
 
   // Cargar JSZip si no esta disponible
   if (!window.JSZip) {
@@ -2777,6 +2779,24 @@ async function exportCueSheet() {
         sheetXml = replaceCellInXml(sheetXml, `${COL_LETTERS[j]}${rn}`, value);
       });
     });
+
+    // Eliminar del XML las filas vacías del template que NUBE interpretaría como registros
+    const firstEmptyRow = DATA_START + dataRows.length;
+    const lastTemplateRow = DATA_START + 49; // plantilla tiene 50 filas (10-59)
+    // Parsear por posición de caracteres para evitar problemas con regex multilinea
+    for (let rn = firstEmptyRow; rn <= lastTemplateRow; rn++) {
+      // Buscar apertura de la fila
+      const openTag1 = `<row r="${rn}" `;
+      const openTag2 = `<row r="${rn}">`;
+      let startIdx = sheetXml.indexOf(openTag1);
+      if (startIdx === -1) startIdx = sheetXml.indexOf(openTag2);
+      if (startIdx === -1) continue;
+      // Buscar cierre </row>
+      const closeTag = '</row>';
+      const endIdx = sheetXml.indexOf(closeTag, startIdx);
+      if (endIdx === -1) continue;
+      sheetXml = sheetXml.slice(0, startIdx) + sheetXml.slice(endIdx + closeTag.length);
+    }
 
     // Guardar XML modificado en el ZIP (el resto queda intacto)
     zip.file("xl/worksheets/sheet1.xml", sheetXml);
@@ -2928,7 +2948,7 @@ function renderApp(root) {
             <input type="text" class="cabecera-meta__input cabecera-meta__input--titulo" id="input-titulo-programa" autocomplete="off" />
           </label>
           <label class="cabecera-meta__field cabecera-meta__field--capitulo">
-            <span class="cabecera-meta__label">CAPÍTULO</span>
+            <span class="cabecera-meta__label">EPISODIO</span>
             <input type="text" class="cabecera-meta__input cabecera-meta__input--capitulo" id="input-capitulo" autocomplete="off" />
           </label>
         </div>
