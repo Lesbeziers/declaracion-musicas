@@ -650,10 +650,38 @@ function showGridToast(message) {
   if (!message) return;
   const toast = getToastElement();
   toast.textContent = message;
+  toast.classList.remove("is-cell-anchored");
+  toast.style.left = "";
+  toast.style.top = "";
+  toast.style.bottom = "";
+  toast.style.transform = "";
   toast.classList.add("is-visible");
   if (toastHideTimer) window.clearTimeout(toastHideTimer);
   toastHideTimer = window.setTimeout(() => {
     toast.classList.remove("is-visible");
+  }, TOAST_DURATION_MS);
+}
+
+function showCellToast(cell, message) {
+  if (!message || !cell) return;
+  const rect = cell.getBoundingClientRect();
+  const toast = getToastElement();
+  toast.textContent = message;
+  toast.classList.add("is-cell-anchored");
+  // Posicionar debajo de la celda, centrado en ella
+  const toastLeft = rect.left + rect.width / 2;
+  toast.style.left = `${toastLeft}px`;
+  toast.style.top = `${rect.bottom + 8}px`;
+  toast.style.bottom = "";
+  toast.style.transform = "translateX(-50%)";
+  toast.classList.add("is-visible");
+  if (toastHideTimer) window.clearTimeout(toastHideTimer);
+  toastHideTimer = window.setTimeout(() => {
+    toast.classList.remove("is-visible");
+    toast.classList.remove("is-cell-anchored");
+    toast.style.left = "";
+    toast.style.top = "";
+    toast.style.transform = "";
   }, TOAST_DURATION_MS);
 }
 
@@ -1354,6 +1382,16 @@ function setCellValue(cell, rawValue, historyOptions = {}) {
         durCell.textContent = newDur;
         durCell.classList.toggle("has-error", !!newDur && !isValidTCFormat(newDur));
       }
+      // TC OUT < TC IN → marcar ambas celdas en naranja y avisar
+      const bothValid = row.tcIn && row.tcOut && isValidTCFormat(row.tcIn) && isValidTCFormat(row.tcOut);
+      const tcOutMinorError = bothValid && !newDur; // calcDuracion devuelve "" si OUT <= IN
+      ["tcIn", "tcOut"].forEach((key) => {
+        const c = document.querySelector(
+          `[data-block-index="${meta.blockIndex}"][data-row-index="${meta.rowIndex}"][data-column-key="${key}"]`
+        );
+        if (c) c.classList.toggle("has-tc-order-error", tcOutMinorError);
+      });
+      if (tcOutMinorError) { const editedCell = document.querySelector(`[data-block-index="${meta.blockIndex}"][data-row-index="${meta.rowIndex}"][data-column-key="${meta.columnKey}"]`); showCellToast(editedCell, "TC OUT debe ser mayor que TC IN"); }
     }
 
     // Duración editada a mano → TC IN = 00:00:00, TC OUT = Duración
@@ -1367,6 +1405,7 @@ function setCellValue(cell, rawValue, historyOptions = {}) {
         if (c) {
           c.textContent = row[key];
           c.classList.remove("has-error");
+          c.classList.remove("has-tc-order-error");
         }
       });
     }
