@@ -74,8 +74,8 @@
   --row-height: 30px;
   --header-height: 38px;
   /* Sin columnas de días — ancho = solo columnas izquierdas */
-  --month-grid-width: 1380px;
-  --month-body-scrollbar-space: 24px;
+  --month-grid-width: 1600px;
+  --month-body-scrollbar-space: 16px;
   --month-body-bottom-space: 96px;
 }
 
@@ -148,7 +148,7 @@ body {
 .cabecera-acciones__inner {
   width: var(--month-grid-width);
   margin: 0 auto;
-  min-height: 40px;
+  min-height: 50px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -159,6 +159,7 @@ body {
 .cue-sheet-btn {
   appearance: none;
   border: 1px solid #ffffff;
+  border-radius: 3px;
   background: transparent;
   color: #ffffff;
   font-family: inherit;
@@ -192,7 +193,7 @@ body {
 .cabecera-meta__inner {
   width: var(--month-grid-width);
   margin: 0 auto;
-  min-height: 40px;
+  min-height: 50px;
   display: flex;
   align-items: center;
   padding: 0 4px;
@@ -225,7 +226,7 @@ body {
 .cabecera-meta__input {
   appearance: none;
   border: none;
-  border-radius: 0;
+  border-radius: 3px;
   background: #ffffff;
   color: #333333;
   font-family: inherit;
@@ -308,11 +309,11 @@ body {
 
 /* TÍTULO | AUTOR | INTÉRPRETE | TC IN | TC OUT | DURACIÓN | MODALIDAD | TIPO MÚSICA | CÓD.LIB | NOM.LIB */
 .left-row {
-  grid-template-columns: 220px 160px 160px 90px 90px 80px 150px 140px 130px 160px;
+  grid-template-columns: 330px 220px 150px 90px 90px 95px 160px 140px 145px 165px;
 }
 
 .left-header {
-  grid-template-columns: 220px 160px 160px 90px 90px 80px 150px 140px 130px 160px;
+  grid-template-columns: 330px 220px 150px 90px 90px 95px 160px 140px 145px 165px;
 }
 
 .left-grid {
@@ -334,8 +335,8 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  font-weight: 700;
-  font-size: 12px;
+  font-weight: 900;
+  font-size: 14px;
   color: var(--header-text);
   background: var(--header-bg);
   border-bottom: 3px solid var(--grid-border);
@@ -808,6 +809,7 @@ body {
   font-weight: 400;
   border-radius: 50%;
   flex-shrink: 0;
+  border-width: 2px;
 }
 
 .cabecera-acciones__spacer {
@@ -869,7 +871,7 @@ body {
 .info-modal__close {
   appearance: none;
   background: transparent;
-  border: 1px solid rgba(255,255,255,0.5);
+  border: 2px solid rgba(255,255,255,0.5);
   color: #fff;
   width: 24px;
   height: 24px;
@@ -905,8 +907,8 @@ body {
 }
 
 .info-section__title {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #3d3d3d;
@@ -915,30 +917,28 @@ body {
   border-bottom: 2px solid #3d3d3d;
 }
 
-.info-section p {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: #333;
-}
-
-/* Tabla de campos */
+/* Tabla de campos — dos columnas */
 .info-fields {
   margin: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0;
 }
 
 .info-fields__row {
   display: grid;
-  grid-template-columns: 180px 1fr;
-  gap: 0 12px;
+  grid-template-columns: 150px 1fr;
+  gap: 0 10px;
   padding: 7px 8px;
   border-bottom: 1px solid #f0f0f0;
 }
 
-.info-fields__row:first-child {
+.info-fields__row:nth-child(odd) {
+  border-right: 1px solid #f0f0f0;
+}
+
+.info-fields__row:nth-child(1),
+.info-fields__row:nth-child(2) {
   border-top: 1px solid #f0f0f0;
 }
 
@@ -953,7 +953,7 @@ body {
 }
 
 .info-fields__row dt {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #222;
   padding-top: 1px;
@@ -961,7 +961,7 @@ body {
 
 .info-fields__row dd {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
   color: #444;
 }
@@ -975,29 +975,33 @@ body {
   font-family: "Consolas", "Courier New", monospace;
 }
 
-/* Consejos */
-.info-tips {
+/* Sección TC — lista simple */
+.info-tc-list {
   margin: 0;
-  padding: 0 0 0 18px;
+  padding: 0;
+  list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
-.info-tips li {
+.info-tc-list li {
   font-size: 13px;
   line-height: 1.55;
   color: #333;
+  padding: 6px 8px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.info-tips kbd {
-  display: inline-block;
+.info-tc-list li:first-child {
+  border-top: 1px solid #f0f0f0;
+}
+
+.info-tc-list li code {
   background: #f4f4f4;
-  border: 1px solid #ccc;
-  border-bottom-width: 2px;
+  border: 1px solid #ddd;
   border-radius: 3px;
-  padding: 0 5px;
+  padding: 0 4px;
   font-size: 11px;
   font-family: "Consolas", "Courier New", monospace;
-  color: #222;
 }
