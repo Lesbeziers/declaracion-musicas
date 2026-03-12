@@ -24,8 +24,8 @@ const columns = [
     cellType: "select",
     options: ["", "LIBRERÍA", "COMERCIAL", "ORIGINAL"],
   },
-  { key: "codigoLibreria",  label: "CÓDIGO DE LIBRERÍA",  type: "text" },
-  { key: "nombreLibreria",  label: "NOMBRE DE LIBRERÍA",  type: "text" },
+  { key: "codigoLibreria",  label: "CÓDIGO LIBRERÍA",  type: "text" },
+  { key: "nombreLibreria",  label: "NOMBRE LIBRERÍA",  type: "text" },
 ];
 
 const headers = columns.map((c) => c.label);
@@ -539,19 +539,28 @@ function getCopyRangeValues(selection) {
   const sourceBlock = blocks[copyRangeBlockIndex];
   if (!sourceBlock?.rows?.length) return [];
   const orderedRows = getOrderedRowsForMonth(sourceBlock);
-  return orderedRows
-    .filter((item) => item.sourceIndex >= selection.r1 && item.sourceIndex <= selection.r2)
-    .map((item) => getCellRawValue(item.row, selection.col));
+  let filtered;
+  if (selection.rows) {
+    const rowSet = new Set(selection.rows);
+    filtered = orderedRows.filter((item) => rowSet.has(item.sourceIndex));
+  } else {
+    filtered = orderedRows.filter((item) => item.sourceIndex >= selection.r1 && item.sourceIndex <= selection.r2);
+  }
+  return filtered.map((item) => getCellRawValue(item.row, selection.col));
 }
 
 function buildCopyTextFromSelection(selection) {
   const block = blocks[selection.blockIndex];
   if (!block) return "";
   const orderedRows = getOrderedRowsForMonth(block);
-  const values = orderedRows
-    .filter((item) => item.sourceIndex >= selection.r1 && item.sourceIndex <= selection.r2)
-    .map((item) => getCellRawValue(item.row, selection.col));
-  return values.join("\n");
+  let filtered;
+  if (selection.rows) {
+    const rowSet = new Set(selection.rows);
+    filtered = orderedRows.filter((item) => rowSet.has(item.sourceIndex));
+  } else {
+    filtered = orderedRows.filter((item) => item.sourceIndex >= selection.r1 && item.sourceIndex <= selection.r2);
+  }
+  return filtered.map((item) => getCellRawValue(item.row, selection.col)).join("\n");
 }
 
 function resolveVerticalPasteValues({ rangeSize, clipboardText }) {
@@ -943,11 +952,21 @@ function clearDragSelectionPreview() {
 function renderDragSelectionPreview(selection) {
   clearDragSelectionPreview();
   if (!selection) return;
-  for (let rowIndex = selection.r1; rowIndex <= selection.r2; rowIndex++) {
-    const cell = document.querySelector(
-      `[data-block-index="${selection.blockIndex}"][data-row-index="${rowIndex}"][data-column-key="${selection.col}"]`
-    );
-    if (cell) cell.classList.add("is-drag-selected");
+  const indices = selection.rows ?? [];
+  if (indices.length > 0) {
+    indices.forEach((rowIndex) => {
+      const cell = document.querySelector(
+        `[data-block-index="${selection.blockIndex}"][data-row-index="${rowIndex}"][data-column-key="${selection.col}"]`
+      );
+      if (cell) cell.classList.add("is-drag-selected");
+    });
+  } else {
+    for (let rowIndex = selection.r1; rowIndex <= selection.r2; rowIndex++) {
+      const cell = document.querySelector(
+        `[data-block-index="${selection.blockIndex}"][data-row-index="${rowIndex}"][data-column-key="${selection.col}"]`
+      );
+      if (cell) cell.classList.add("is-drag-selected");
+    }
   }
 }
 
@@ -965,13 +984,20 @@ function updateDragSelectionFromPointer(event) {
   const hoverCell = getCellFromPointer(event);
   const hoverMeta = getCellMeta(hoverCell);
   if (!hoverMeta || hoverMeta.blockIndex !== dragSelectState.anchorBlockIndex) return;
-  const r1 = Math.min(dragSelectState.anchorRow, hoverMeta.rowIndex);
-  const r2 = Math.max(dragSelectState.anchorRow, hoverMeta.rowIndex);
+  const block = blocks[dragSelectState.anchorBlockIndex];
+  const orderedRows = getOrderedRowsForMonth(block);
+  const anchorVisIdx = orderedRows.findIndex((item) => item.sourceIndex === dragSelectState.anchorRow);
+  const hoverVisIdx = orderedRows.findIndex((item) => item.sourceIndex === hoverMeta.rowIndex);
+  if (anchorVisIdx < 0 || hoverVisIdx < 0) return;
+  const minVis = Math.min(anchorVisIdx, hoverVisIdx);
+  const maxVis = Math.max(anchorVisIdx, hoverVisIdx);
+  const selectedSourceIndices = orderedRows.slice(minVis, maxVis + 1).map((item) => item.sourceIndex);
   dragSelection = {
     blockIndex: dragSelectState.anchorBlockIndex,
     col: dragSelectState.anchorCol,
-    r1,
-    r2,
+    r1: Math.min(...selectedSourceIndices),
+    r2: Math.max(...selectedSourceIndices),
+    rows: selectedSourceIndices,
   };
   renderDragSelectionPreview(dragSelection);
 }
@@ -1018,6 +1044,7 @@ function handleGridPointerDown(event) {
           col: meta.columnKey,
           r1: Math.min(...selectedSourceIndices),
           r2: Math.max(...selectedSourceIndices),
+          rows: selectedSourceIndices,
         };
         setSelectedCell(cell);
         renderDragSelectionPreview(dragSelection);
@@ -1036,6 +1063,73 @@ function handleGridPointerDown(event) {
       dragSelection = null;
       clearDragSelectionPreview();
       setSelectedCell(cell);
+    }
+    return;
+  }
+
+  // Ctrl+Click — selección discontinua
+  if ((event.ctrlKey || event.metaKey) && !event.shiftKey) {
+    event.preventDefault();
+    const block = blocks[meta.blockIndex];
+    const orderedRows = getOrderedRowsForMonth(block);
+    const clickedSourceIndex = meta.rowIndex;
+    // Si no hay dragSelection pero sí hay celda seleccionada en la misma columna, tomarla como base
+    const selectedMeta = getCellMeta(selectedCell);
+    const hasSelectedInSameCol = selectedMeta &&
+      selectedMeta.blockIndex === meta.blockIndex &&
+      selectedMeta.columnKey === meta.columnKey;
+
+    const sameContext = dragSelection &&
+      dragSelection.blockIndex === meta.blockIndex &&
+      dragSelection.col === meta.columnKey &&
+      Array.isArray(dragSelection.rows);
+
+    let newRows;
+    if (sameContext) {
+      const existing = dragSelection.rows;
+      if (existing.includes(clickedSourceIndex)) {
+        // Deseleccionar
+        newRows = existing.filter((i) => i !== clickedSourceIndex);
+      } else {
+        // Añadir en orden visual
+        const allInOrder = orderedRows.map((item) => item.sourceIndex);
+        const combined = [...existing, clickedSourceIndex];
+        newRows = allInOrder.filter((i) => combined.includes(i));
+      }
+    } else if (hasSelectedInSameCol && selectedMeta.rowIndex !== clickedSourceIndex) {
+      // Partir de la celda actualmente seleccionada + la nueva
+      const allInOrder = orderedRows.map((item) => item.sourceIndex);
+      const combined = [selectedMeta.rowIndex, clickedSourceIndex];
+      newRows = allInOrder.filter((i) => combined.includes(i));
+    } else {
+      // Nueva selección discontinua desde cero
+      newRows = [clickedSourceIndex];
+    }
+
+    if (newRows.length === 0) {
+      dragSelection = null;
+      clearDragSelectionPreview();
+      setSelectedCell(cell);
+      shiftSelectAnchor = null;
+    } else {
+      dragSelection = {
+        blockIndex: meta.blockIndex,
+        col: meta.columnKey,
+        r1: Math.min(...newRows),
+        r2: Math.max(...newRows),
+        rows: newRows,
+      };
+      setSelectedCell(cell);
+      // Actualizar anchor para posible Shift posterior
+      const visIdx = Math.max(0, orderedRows.findIndex((item) => item.sourceIndex === clickedSourceIndex));
+      shiftSelectAnchor = {
+        blockIndex: meta.blockIndex,
+        columnKey: meta.columnKey,
+        anchorSourceIndex: clickedSourceIndex,
+        anchorVisibleIndex: visIdx,
+        activeVisibleIndex: visIdx,
+      };
+      renderDragSelectionPreview(dragSelection);
     }
     return;
   }
@@ -1807,6 +1901,20 @@ function attachSelectCell(cell, row, columnKey) {
         const nextSelection = moveSelectionDownWithinBlock(cell); focusCellWithoutEditing(nextSelection.cell); return true;
       }
       if (event.key === "Escape") { event.preventDefault(); cancel(); focusCellWithoutEditing(cell); return true; }
+      // Salto por letra: busca la primera opción que empiece por la tecla pulsada y confirma
+      if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        const letter = event.key.toLowerCase();
+        const startFrom = (highlightedIndex + 1) % column.options.length;
+        let found = column.options.findIndex((o, i) => i >= startFrom && o.toLowerCase().startsWith(letter));
+        if (found === -1) found = column.options.findIndex((o) => o.toLowerCase().startsWith(letter));
+        if (found !== -1) {
+          event.preventDefault();
+          row[columnKey] = column.options[found];
+          commit();
+          focusCellWithoutEditing(cell);
+          return true;
+        }
+      }
       return false;
     };
 
@@ -1828,6 +1936,24 @@ function attachSelectCell(cell, row, columnKey) {
     if (wasSelected) openEditMode({ keepContent: true });
   });
   cell.addEventListener("focus", () => setSelectedCell(cell));
+  cell.addEventListener("keydown", (e) => {
+    if (IS_VIEWER_MODE) return;
+    if (editingCell?.cell === cell) return; // abierto: lo maneja handleKeyDown
+    if (e.key === "Enter" || e.key === "F2") { e.preventDefault(); openEditMode({ keepContent: true }); return; }
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const letter = e.key.toLowerCase();
+      const currentIdx = Math.max(0, column.options.findIndex(o => o === row[columnKey]));
+      const startFrom = (currentIdx + 1) % column.options.length;
+      let found = column.options.findIndex((o, i) => i >= startFrom && o.toLowerCase().startsWith(letter));
+      if (found === -1) found = column.options.findIndex(o => o.toLowerCase().startsWith(letter));
+      if (found !== -1) {
+        e.preventDefault();
+        row[columnKey] = column.options[found];
+        setCellValue(cell, column.options[found], { type: "edit", groupKey: `${cell.dataset.blockIndex}:${cell.dataset.rowIndex}:${cell.dataset.columnKey}` });
+        render();
+      }
+    }
+  });
   render();
 }
 
@@ -1954,6 +2080,7 @@ function handleGridEnterKey(event) {
         col: meta.columnKey,
         r1: Math.min(...selectedSourceIndices),
         r2: Math.max(...selectedSourceIndices),
+        rows: selectedSourceIndices,
       };
       renderDragSelectionPreview(dragSelection);
       return;
@@ -2010,6 +2137,7 @@ function handleGridEnterKey(event) {
       });
       if (matchedOption) {
         setCellValue(selectedCell, matchedOption, { type: "edit", groupKey: `${selectedCell.dataset.blockIndex}:${selectedCell.dataset.rowIndex}:${selectedCell.dataset.columnKey}` });
+        selectedCell.textContent = matchedOption;
       }
       return;
     }
@@ -2026,12 +2154,16 @@ function handleGridEnterKey(event) {
       dragSelection.blockIndex === Number.parseInt(selectedCell.dataset.blockIndex, 10) &&
       dragSelection.col === selectedCell.dataset.columnKey &&
       dragSelection.r2 > dragSelection.r1 &&
-      selectedRowIndex >= dragSelection.r1 &&
-      selectedRowIndex <= dragSelection.r2;
+      (dragSelection.rows ? dragSelection.rows.includes(selectedRowIndex) : selectedRowIndex >= dragSelection.r1 && selectedRowIndex <= dragSelection.r2);
 
     if (hasVerticalRangeSelection && !editingCell && !isEditingElement(document.activeElement)) {
+      const clearIndices = dragSelection.rows ?? [];
+      const fallback = clearIndices.length === 0;
       withHistoryAction("clear", { groupKey: `clear:${dragSelection.blockIndex}:${dragSelection.col}` }, () => {
-        for (let rowIndex = dragSelection.r1; rowIndex <= dragSelection.r2; rowIndex++) {
+        const indicesToClear = fallback
+          ? Array.from({ length: dragSelection.r2 - dragSelection.r1 + 1 }, (_, i) => dragSelection.r1 + i)
+          : clearIndices;
+        for (const rowIndex of indicesToClear) {
           const targetCell = document.querySelector(
             `[data-block-index="${dragSelection.blockIndex}"][data-row-index="${rowIndex}"][data-column-key="${dragSelection.col}"]`
           );
@@ -2812,11 +2944,6 @@ function renderApp(root) {
           <div class="info-modal__body">
 
             <section class="info-section">
-              <h3 class="info-section__title">¿Para qué sirve esta herramienta?</h3>
-              <p>La <strong>Declaración de Músicas</strong> (Cue Sheet) es el documento oficial que informa a la SGAE de qué música aparece en cada episodio de un programa, en qué momento y durante cuánto tiempo. Esta herramienta permite rellenarla directamente en el navegador y exportarla al formato Excel adecuado.</p>
-            </section>
-
-            <section class="info-section">
               <h3 class="info-section__title">Campos del formulario</h3>
               <dl class="info-fields">
                 <div class="info-fields__row info-fields__row--required">
@@ -2829,11 +2956,11 @@ function renderApp(root) {
                 </div>
                 <div class="info-fields__row info-fields__row--required">
                   <dt>Título</dt>
-                  <dd><strong class="info-required-text">Campo obligatorio.</strong> Nombre de la pieza musical.</dd>
+                  <dd><strong class="info-required-text">Campo obligatorio.</strong></dd>
                 </div>
                 <div class="info-fields__row info-fields__row--required">
                   <dt>Autor</dt>
-                  <dd><strong class="info-required-text">Campo obligatorio.</strong> Compositor o autor de la obra. Si hay varios, introducirlos separados con coma.</dd>
+                  <dd><strong class="info-required-text">Campo obligatorio.</strong></dd>
                 </div>
                 <div class="info-fields__row">
                   <dt>Intérprete</dt>
@@ -2841,65 +2968,64 @@ function renderApp(root) {
                 </div>
                 <div class="info-fields__row info-fields__row--required">
                   <dt>Duración</dt>
-                  <dd><strong class="info-required-text">Campo obligatorio.</strong> Tiempo real de uso de la música, en formato <code>hh:mm:ss</code>. Se calcula automáticamente a partir de TC IN y TC OUT, pero también puede introducirse manualmente sin establecer el TC IN y el TC OUT.</dd>
+                  <dd><strong class="info-required-text">Campo obligatorio.</strong></dd>
                 </div>
                 <div class="info-fields__row">
                   <dt>TC IN</dt>
-                  <dd>Timecode de entrada de la música, en formato <code>hh:mm:ss</code>. Se puede escribir solo los dígitos (p.ej. <code>12345</code> → <code>00:01:23</code>) y se formatea solo al salir del campo.</dd>
-                </div>
-                <div class="info-fields__row">
-                  <dt>TC OUT</dt>
-                  <dd>Timecode de salida. Igual que TC IN. Debe ser posterior al TC IN.</dd>
-                </div>
-                <div class="info-fields__row info-fields__row--required">
-                  <dt>Modalidad</dt>
-                  <dd><strong class="info-required-text">Campo obligatorio.</strong> Tipo de uso de la música: FONDOS, AMBIENTACIONES, CARETAS, COMERCIAL, SINFÓNICOS o VARIEDADES.</dd>
-                </div>
-                <div class="info-fields__row info-fields__row--required">
-                  <dt>Tipo de música</dt>
-                  <dd><strong class="info-required-text">Campo obligatorio.</strong> ORIGINAL o LIBRERÍA.</dd>
-                </div>
-                <div class="info-fields__row">
-                  <dt>Código de librería</dt>
                   <dd>Campo opcional.</dd>
                 </div>
                 <div class="info-fields__row">
-                  <dt>Nombre de librería</dt>
+                  <dt>TC OUT</dt>
+                  <dd>Campo opcional.</dd>
+                </div>
+                <div class="info-fields__row info-fields__row--required">
+                  <dt>Modalidad</dt>
+                  <dd><strong class="info-required-text">Campo obligatorio.</strong></dd>
+                </div>
+                <div class="info-fields__row info-fields__row--required">
+                  <dt>Tipo de música</dt>
+                  <dd><strong class="info-required-text">Campo obligatorio.</strong></dd>
+                </div>
+                <div class="info-fields__row">
+                  <dt>Código librería</dt>
+                  <dd>Campo opcional.</dd>
+                </div>
+                <div class="info-fields__row">
+                  <dt>Nombre librería</dt>
                   <dd>Campo opcional.</dd>
                 </div>
               </dl>
             </section>
 
             <section class="info-section">
-              <h3 class="info-section__title">Botones de la barra superior</h3>
-              <dl class="info-fields">
-                <div class="info-fields__row">
+              <h3 class="info-section__title">TC IN / TC OUT / Duración</h3>
+              <ul class="info-tc-list">
+                <li><strong>TC IN / TC OUT:</strong> En formato <code>hh:mm:ss</code>. Se puede escribir solo los dígitos (p.ej. <code>123</code> → <code>00:01:23</code>). Se formatean correctamente al salir de la celda.</li>
+                <li><strong>TC IN / TC OUT:</strong> Son campos opcionales, pero si se introducen, la celda <strong>Duración</strong> se calcula automáticamente.</li>
+                <li><strong>TC OUT</strong> debe ser mayor que <strong>TC IN</strong> para ser validado.</li>
+                <li><strong>Duración:</strong> <strong class="info-required-text">Campo obligatorio.</strong> En formato <code>hh:mm:ss</code>. Al rellenarse manualmente, <strong>TC IN</strong> se establece a <code>00:00:00</code> y <strong>TC OUT</strong> se iguala a la duración introducida.</li>
+              </ul>
+            </section>
+
+            <section class="info-section">
+              <h3 class="info-section__title">Importar / Exportar Excel</h3>
+              <dl class="info-fields" style="grid-template-columns: 1fr;">
+                <div class="info-fields__row" style="grid-template-columns: 180px 1fr;">
                   <dt>IMPORTAR CUE SHEET</dt>
                   <dd>Carga un fichero Excel (<code>.xlsx</code>, <code>.xls</code> o <code>.xlsm</code>) existente para poder seguir editándolo si fuera necesario.</dd>
                 </div>
-                <div class="info-fields__row">
+                <div class="info-fields__row" style="grid-template-columns: 180px 1fr;">
                   <dt>GENERAR CUE SHEET</dt>
                   <dd>Valida el contenido del grid (campos obligatorios, formatos de TC) y exporta un fichero Excel con el formato oficial. Antes de exportar, las celdas con errores se marcan en naranja.</dd>
                 </div>
               </dl>
             </section>
 
-            <section class="info-section">
-              <h3 class="info-section__title">Consejos de uso</h3>
-              <ul class="info-tips">
-                <li>Puedes <strong>pegar directamente desde Excel el contenido de una sola columna</strong> seleccionando una celda del grid y usando <kbd>Ctrl+V</kbd>.</li>
-                <li>Para <strong>seleccionar un rango</strong> de filas usa <kbd>Shift+Clic</kbd> o <kbd>Shift+↑↓</kbd>.</li>
-                <li>Para <strong>eliminar filas</strong> selecciónalas y pulsa <kbd>Supr</kbd> o <kbd>Delete</kbd>.</li>
-                <li>Si se escribe el TC sin separadores (p.ej. <code>013456</code>), la herramienta lo formatea automáticamente como <code>00:01:34</code> al confirmar la celda.</li>
-                <li>Si se edita la <strong>Duración</strong> manualmente, el TC IN se pone a <code>00:00:00</code> y el TC OUT se iguala a la duración introducida.</li>
-              </ul>
-            </section>
-
           </div>
         </div>
       </div>
 
-                  <section class="month-block" aria-label="Grid de declaración">
+            <section class="month-block" aria-label="Grid de declaración">
         <header class="month-block__header">
           <div class="left-header" id="left-header"></div>
         </header>
