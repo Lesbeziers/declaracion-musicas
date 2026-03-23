@@ -587,21 +587,17 @@ function resolveVerticalPasteValues({ rangeSize, clipboardText }) {
 }
 
 function copyTextToClipboard(text) {
-  const fallbackCopy = () => {
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.setAttribute("readonly", "");
-    textarea.style.cssText = "position:fixed;opacity:0;pointer-events:none;left:-9999px";
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand("copy");
-    textarea.remove();
-  };
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(text).catch(() => fallbackCopy());
-    return;
-  }
-  fallbackCopy();
+  // Synchronous execCommand — works in Safari (within user gesture).
+  // navigator.clipboard.writeText is NOT used: Safari blocks it if any
+  // async work or preventDefault happened earlier in the call chain.
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.cssText = "position:fixed;opacity:0;pointer-events:none;left:-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
 }
 
 function getCopySelection() {
@@ -2062,6 +2058,8 @@ function handleGridEnterKey(event) {
     if (!nextCopySelection) return;
     setCopyRange({ col: nextCopySelection.col, r1: nextCopySelection.r1, r2: nextCopySelection.r2 }, nextCopySelection.blockIndex);
     copyTextToClipboard(buildCopyTextFromSelection(nextCopySelection));
+    // Re-focus: the hidden textarea inside copyTextToClipboard steals focus briefly.
+    if (selectedCell) selectedCell.focus();
     event.preventDefault();
     return;
   }
@@ -2742,7 +2740,7 @@ async function exportCueSheet() {
   if (!window.JSZip) {
     await new Promise((resolve, reject) => {
       const s = document.createElement("script");
-      s.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+      s.src = "assets/js/jszip.min.js";
       s.onload = resolve;
       s.onerror = () => reject(new Error("No se pudo cargar JSZip"));
       document.head.appendChild(s);
@@ -3154,7 +3152,13 @@ function renderApp(root) {
   renderRows();
   const gridRoot = root.querySelector(".month-block__body-grid");
   gridRoot?.addEventListener("keydown", handleGridEnterKey);
-  gridRoot?.addEventListener("paste", handleGridPaste);
+
+  // Paste on document level — Safari doesn't fire paste on non-editable focused elements.
+  document.addEventListener("paste", (event) => {
+    if (gridRoot && (gridRoot.contains(document.activeElement) || document.activeElement === gridRoot)) {
+      handleGridPaste(event);
+    }
+  });
   gridRoot?.addEventListener("pointerdown", handleGridPointerDown);
   document.addEventListener("pointermove", handleGridPointerMove);
   document.addEventListener("pointerup", handleGridPointerUp);
