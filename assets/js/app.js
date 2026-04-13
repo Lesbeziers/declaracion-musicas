@@ -30,12 +30,12 @@ const columns = [
 
 const headers = columns.map((c) => c.label);
 const DATE_COLUMNS = new Set([]); // sin columnas de fecha en este proyecto
-const TOTAL_ROWS = 150;
+const TOTAL_ROWS = 250;
 
 // ── Constantes de comportamiento ──────────────────────────────
 const IS_VIEWER_MODE = window.PANEL_FEATURES?.viewerMode === true;
 const DRAG_THRESHOLD_PX = 6;
-const MAX_AUTO_INSERT = 50;
+const MAX_AUTO_INSERT = 250;
 const TOAST_DURATION_MS = 3200;
 const HISTORY_LIMIT = 200;
 const HISTORY_GROUP_WINDOW_MS = 650;
@@ -74,6 +74,7 @@ function normalizeTCInput(raw) {
   if (!digits.length) return { value: text, valid: false };
 
   let hh = 0, mm = 0, ss = 0;
+  let isExtended = false; // true cuando vienen 8 dígitos (formato ProTools HH:MM:SS:FF)
 
   switch (digits.length) {
     case 1: ss = parseInt(digits, 10); break;
@@ -81,10 +82,20 @@ function normalizeTCInput(raw) {
     case 3: mm = parseInt(digits[0], 10);          ss = parseInt(digits.slice(1), 10); break;
     case 4: mm = parseInt(digits.slice(0, 2), 10); ss = parseInt(digits.slice(2), 10); break;
     case 5: hh = parseInt(digits[0], 10);          mm = parseInt(digits.slice(1, 3), 10); ss = parseInt(digits.slice(3), 10); break;
-    default: hh = parseInt(digits.slice(0, 2), 10); mm = parseInt(digits.slice(2, 4), 10); ss = parseInt(digits.slice(4, 6), 10); break;
+    case 6: hh = parseInt(digits.slice(0, 2), 10); mm = parseInt(digits.slice(2, 4), 10); ss = parseInt(digits.slice(4, 6), 10); break;
+    default: {
+      // Formato ProTools HH:MM:SS:FF — descartamos los fotogramas (FF), tomamos HH:MM:SS
+      isExtended = true;
+      const d8 = digits.slice(0, 8);
+      hh = parseInt(d8.slice(0, 2), 10);
+      mm = parseInt(d8.slice(2, 4), 10);
+      ss = parseInt(d8.slice(4, 6), 10);
+      break;
+    }
   }
 
-  if (hh > 23 || mm > 59 || ss > 59) return { value: text, valid: false };
+  if (!isExtended && hh > 23) return { value: text, valid: false };
+  if (mm > 59 || ss > 59) return { value: text, valid: false };
   return {
     value: `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`,
     valid: true,
@@ -587,17 +598,21 @@ function resolveVerticalPasteValues({ rangeSize, clipboardText }) {
 }
 
 function copyTextToClipboard(text) {
-  // Synchronous execCommand — works in Safari (within user gesture).
-  // navigator.clipboard.writeText is NOT used: Safari blocks it if any
-  // async work or preventDefault happened earlier in the call chain.
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.cssText = "position:fixed;opacity:0;pointer-events:none;left:-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand("copy");
-  textarea.remove();
+  const fallbackCopy = () => {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.cssText = "position:fixed;opacity:0;pointer-events:none;left:-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  };
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).catch(() => fallbackCopy());
+    return;
+  }
+  fallbackCopy();
 }
 
 function getCopySelection() {
@@ -2058,8 +2073,6 @@ function handleGridEnterKey(event) {
     if (!nextCopySelection) return;
     setCopyRange({ col: nextCopySelection.col, r1: nextCopySelection.r1, r2: nextCopySelection.r2 }, nextCopySelection.blockIndex);
     copyTextToClipboard(buildCopyTextFromSelection(nextCopySelection));
-    // Re-focus: the hidden textarea inside copyTextToClipboard steals focus briefly.
-    if (selectedCell) selectedCell.focus();
     event.preventDefault();
     return;
   }
@@ -2359,11 +2372,12 @@ function normalizeHeaderToken(value) {
 
 // Aliases por columna — se normalizan igual que los encabezados del Excel
 const IMPORT_ALIASES = {
-  titulo:         ["titulo", "title", "cancion", "tema", "track", "pieza"],
+  titulo:         ["titulo", "title", "cancion", "tema", "pieza", "clipname"],
   autor:          ["autor", "autores", "compositor", "compositores", "author", "writer", "writers"],
   interprete:     ["interprete", "interpretes", "artista", "artistas", "artist", "performer"],
-  tcIn:           ["tcin", "tcentrada", "timecodeentrada", "timein", "tcstart", "inicio", "entrada", "tcde", "in"],
-  tcOut:          ["tcout", "tcsalida", "timecodesalida", "timeout", "tcend", "fin", "salida", "tca", "out"],
+  tcIn:           ["tcin", "tcentrada", "timecodeentrada", "timein", "tcstart", "inicio", "entrada", "tcde", "in", "starttime"],
+  tcOut:          ["tcout", "tcsalida", "timecodesalida", "timeout", "tcend", "fin", "salida", "tca", "out", "endtime"],
+  duracion:       ["duracion", "duration", "dur"],
   modalidad:      ["modalidad", "uso", "tipodeuso", "mode"],
   tipoMusica:     ["tipomusica", "tipodemusica", "musictype", "categoria"],
   codigoLibreria: ["codigodelibreria", "codigobiblioteca", "codigo", "code", "libcode"],
@@ -2462,7 +2476,7 @@ function importFromMatrix(matrix) {
   const usedKeys = new Set();
   headerRow.forEach((cell, colIndex) => {
     const key = findColumnKeyForHeader(`${cell ?? ""}`);
-    if (key && key !== "duracion" && !usedKeys.has(key)) {
+    if (key && !usedKeys.has(key)) {
       colMap[colIndex] = key;
       usedKeys.add(key);
     }
@@ -3152,13 +3166,7 @@ function renderApp(root) {
   renderRows();
   const gridRoot = root.querySelector(".month-block__body-grid");
   gridRoot?.addEventListener("keydown", handleGridEnterKey);
-
-  // Paste on document level — Safari doesn't fire paste on non-editable focused elements.
-  document.addEventListener("paste", (event) => {
-    if (gridRoot && (gridRoot.contains(document.activeElement) || document.activeElement === gridRoot)) {
-      handleGridPaste(event);
-    }
-  });
+  gridRoot?.addEventListener("paste", handleGridPaste);
   gridRoot?.addEventListener("pointerdown", handleGridPointerDown);
   document.addEventListener("pointermove", handleGridPointerMove);
   document.addEventListener("pointerup", handleGridPointerUp);
