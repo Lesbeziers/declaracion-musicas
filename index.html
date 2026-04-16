@@ -82,9 +82,22 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
 .sm-divider{height:1px;background:var(--b1);margin:6px 0;}
 #back-btn{flex-shrink:0;width:34px;height:34px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;}
 #back-btn:active{background:var(--s3);}
-#map-selector-wrap{flex:1;min-width:0;}
-#map-selector{width:100%;height:34px;background:var(--s2);border:1px solid var(--b2);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:0 24px 0 10px;appearance:none;-webkit-appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(232,232,240,0.45)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;}
-#map-selector:disabled{opacity:.4;cursor:default;}
+#map-selector-wrap{flex:1;min-width:0;position:relative;}
+#map-selector-btn{width:100%;height:34px;background:var(--s2);border:1px solid var(--b2);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:0 10px;cursor:pointer;display:flex;align-items:center;gap:8px;touch-action:manipulation;transition:border-color .12s,background .12s;}
+#map-selector-btn:active{background:var(--s3);}
+#map-selector-btn:disabled{opacity:.4;cursor:default;}
+#map-selector-btn.open{border-color:var(--accent);}
+#map-selector-btn svg{flex-shrink:0;color:var(--muted);transition:transform .18s;}
+#map-selector-btn.open svg{transform:rotate(180deg);color:var(--accent);}
+#map-selector-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;}
+#map-selector-menu{position:absolute;top:40px;left:0;right:0;background:var(--s1);border:1px solid var(--b2);border-radius:8px;overflow:hidden;z-index:1500;box-shadow:0 8px 24px rgba(0,0,0,.5);display:none;max-height:60vh;overflow-y:auto;}
+#map-selector-menu.open{display:block;}
+.map-opt{padding:10px 12px;cursor:pointer;touch-action:manipulation;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--b1);transition:background .1s;}
+.map-opt:last-child{border-bottom:none;}
+.map-opt:active,.map-opt:hover{background:var(--s2);}
+.map-opt.selected{color:var(--accent);background:rgba(124,108,252,.08);}
+.map-opt.selected::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+.map-opt:not(.selected)::before{content:'';width:6px;height:6px;flex-shrink:0;}
 .tb-btn{flex-shrink:0;width:34px;height:34px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;transition:background .12s;}
 .tb-btn:active{background:var(--accent);border-color:var(--accent);}
 .tb-btn.del:active{background:var(--danger);border-color:var(--danger);}
@@ -173,7 +186,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
 
 /* ── Icon picker grid ── */
 .icon-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
-.ig-btn{width:100%;border-radius:8px;border:1px solid var(--b1);background:var(--s2);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 4px;touch-action:manipulation;transition:background .1s,border-color .1s,transform .1s;position:relative;}
+.ig-btn{width:100%;min-width:0;border-radius:8px;border:1px solid var(--b1);background:var(--s2);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 4px;touch-action:manipulation;transition:background .1s,border-color .1s,transform .1s;position:relative;overflow:hidden;}
 .ig-btn:active{transform:scale(.92);background:var(--s3);}
 .ig-btn.selected{border-color:var(--accent);background:rgba(124,108,252,.15);}
 .ig-btn-label{font-size:10px;color:var(--muted);text-align:center;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px;}
@@ -188,7 +201,9 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
 .panel-head h2{font-size:15px;font-weight:500;}
 .panel-close{width:30px;height:30px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;}
 .panel-close:active{background:var(--danger);}
-.panel-body{padding:14px 16px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:72dvh;}
+.panel-body{padding:14px 16px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;overflow-x:hidden;max-height:65dvh;}
+.panel-link{background:transparent;border:none;color:var(--accent);font-family:'DM Sans',sans-serif;font-size:13px;padding:10px 16px 4px;cursor:pointer;text-align:center;touch-action:manipulation;width:100%;border-top:1px solid var(--b1);}
+.panel-link:active{color:var(--text);}
 .panel-foot{padding:12px 16px;border-top:1px solid var(--b1);display:flex;gap:8px;}
 .btn-full{flex:1;height:40px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;touch-action:manipulation;transition:background .12s,transform .1s;border:none;}
 .btn-full:active{transform:scale(.97);}
@@ -277,7 +292,13 @@ textarea.plain-input{height:70px;padding:10px 12px;resize:none;line-height:1.5;}
 <div class="screen" id="map-screen">
   <div id="toolbar">
     <button class="tb-btn" id="hamburger-btn"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><line x1="1" y1="3.5" x2="14" y2="3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="1" y1="7.5" x2="14" y2="7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="1" y1="11.5" x2="14" y2="11.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
-    <div id="map-selector-wrap"><select id="map-selector" disabled><option value="">— sin mapas —</option></select></div>
+    <div id="map-selector-wrap">
+      <button id="map-selector-btn" type="button" disabled>
+        <span id="map-selector-label">— sin mapas —</span>
+        <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div id="map-selector-menu"></div>
+    </div>
     <div id="search-wrap">
       <svg id="search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       <input id="search-input" type="text" placeholder="Buscar">
@@ -406,8 +427,8 @@ textarea.plain-input{height:70px;padding:10px 12px;resize:none;line-height:1.5;}
       <input class="plain-input" id="place-name" type="text" placeholder="Ej: Korok nº 44, Boss débil al fuego..." maxlength="60" autocomplete="off" spellcheck="false">
       <p class="field-label">Nota <span style="color:var(--muted);font-size:10px;text-transform:none">(opcional)</span></p>
       <textarea class="plain-input" id="place-note" placeholder="Anotaciones, pistas, estado..." maxlength="200" spellcheck="false"></textarea>
-      <button id="place-switch-to-label" style="background:transparent;border:none;color:var(--accent);font-family:'DM Sans',sans-serif;font-size:13px;padding:6px 0;cursor:pointer;text-align:center;touch-action:manipulation;">¿Prefieres añadir una etiqueta de texto?</button>
     </div>
+    <button id="place-switch-to-label" class="panel-link">¿Prefieres añadir una etiqueta de texto?</button>
     <div class="panel-foot"><button class="btn-full btn-cancel" id="place-cancel">Cancelar</button><button class="btn-full btn-accent" id="place-confirm">Colocar</button></div>
   </div>
 </div>
@@ -555,7 +576,6 @@ const mapWrap=    $('map-wrap');
 const mapImg=     $('map-img');
 const zoomLabel=  $('zoom-label');
 const emptyState= $('empty-state');
-const selector=   $('map-selector');
 const snack=      $('snack');
 
 // ── Snack ──────────────────────────────────────────────
@@ -844,12 +864,42 @@ function centerOnMarker(markerId){
 // SELECTOR
 // ══════════════════════════════════════════════════════
 function rebuildSelector(){
-  selector.innerHTML='';const p=curProj();
-  if(!p||!p.maps.length){selector.innerHTML='<option value="">— sin mapas —</option>';selector.disabled=true;delMapBtn.style.display='none';return;}
-  selector.disabled=false;
-  p.maps.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.name;if(m.id===p.currentMap)o.selected=true;selector.appendChild(o);});
+  const btn=$('map-selector-btn');
+  const label=$('map-selector-label');
+  const menu=$('map-selector-menu');
+  menu.innerHTML='';
+  const p=curProj();
+  if(!p||!p.maps.length){
+    label.textContent='— sin mapas —';btn.disabled=true;delMapBtn.style.display='none';
+    menu.classList.remove('open');btn.classList.remove('open');
+    return;
+  }
+  btn.disabled=false;
+  const current=p.maps.find(m=>m.id===p.currentMap);
+  label.textContent=current?current.name:'Selecciona un mapa';
+  p.maps.forEach(m=>{
+    const opt=document.createElement('div');
+    opt.className='map-opt'+(m.id===p.currentMap?' selected':'');
+    opt.textContent=m.name;
+    opt.addEventListener('click',()=>{
+      closeMapSelectorMenu();
+      if(m.id===p.currentMap)return;
+      clearHighlight();switchMap(m.id);
+    });
+    menu.appendChild(opt);
+  });
 }
-selector.addEventListener('change',()=>{const p=curProj();if(!p)return;clearHighlight();switchMap(selector.value);});
+function openMapSelectorMenu(){$('map-selector-menu').classList.add('open');$('map-selector-btn').classList.add('open');}
+function closeMapSelectorMenu(){$('map-selector-menu').classList.remove('open');$('map-selector-btn').classList.remove('open');}
+$('map-selector-btn').addEventListener('click',e=>{
+  e.stopPropagation();
+  if($('map-selector-btn').disabled)return;
+  if($('map-selector-menu').classList.contains('open'))closeMapSelectorMenu();
+  else openMapSelectorMenu();
+});
+document.addEventListener('click',e=>{
+  if($('map-selector-menu').classList.contains('open')&&!$('map-selector-wrap').contains(e.target))closeMapSelectorMenu();
+});
 
 // ══════════════════════════════════════════════════════
 // PLACE MARKER MODAL
