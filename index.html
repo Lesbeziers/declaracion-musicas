@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Game Mapper</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&display=swap');
 :root{
   --bg:#0f0f13;--s1:#1a1a22;--s2:#22222e;--s3:#2a2a38;
   --b1:rgba(255,255,255,.07);--b2:rgba(255,255,255,.14);
@@ -131,20 +131,23 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
 .marker.done::after{content:'';position:absolute;top:-2px;right:-2px;width:11px;height:11px;border-radius:50%;background:var(--ok);border:2px solid var(--bg);z-index:2;}
 
 /* Map labels (etiquetas de texto sobre el mapa) */
-.map-label{position:absolute;transform-origin:center center;pointer-events:auto;cursor:pointer;user-select:none;-webkit-user-select:none;color:#fff;font-family:'DM Sans',sans-serif;font-weight:500;letter-spacing:.04em;text-shadow:0 0 4px rgba(0,0,0,.9),0 0 8px rgba(0,0,0,.7),0 1px 2px rgba(0,0,0,1);white-space:nowrap;padding:2px 6px;z-index:9;}
-.map-label-region{font-size:28px;letter-spacing:.12em;text-transform:uppercase;font-weight:300;}
-.map-label-zone{font-size:20px;letter-spacing:.06em;text-transform:uppercase;font-weight:400;}
-.map-label-place{font-size:15px;letter-spacing:.03em;font-weight:500;}
+.map-label{position:absolute;transform-origin:center center;pointer-events:auto;cursor:pointer;user-select:none;-webkit-user-select:none;color:#fff;font-family:'Fraunces',serif;font-weight:400;letter-spacing:.04em;text-shadow:0 0 4px rgba(0,0,0,.9),0 0 8px rgba(0,0,0,.7),0 1px 2px rgba(0,0,0,1);white-space:nowrap;padding:2px 6px;z-index:9;display:flex;align-items:center;justify-content:center;}
+.map-label-region{font-size:30px;letter-spacing:.14em;text-transform:uppercase;font-weight:300;}
+.map-label-zone{font-size:22px;letter-spacing:.08em;text-transform:uppercase;font-weight:400;}
+.map-label-place{font-size:16px;letter-spacing:.02em;font-weight:500;font-style:italic;}
+.map-label .label-text{position:relative;z-index:2;}
+.label-ring{display:none;position:absolute;left:50%;top:50%;width:60px;height:60px;border-radius:50%;border:2.5px solid var(--accent);pointer-events:none;transform:translate(-50%,-50%);animation:pulse 1.4s ease-in-out infinite;z-index:1;}
+.map-label.highlighted .label-ring{display:block;}
 
 /* Label size picker */
 .label-size-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
 .label-size-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 4px;border-radius:8px;border:1px solid var(--b1);background:var(--s2);cursor:pointer;touch-action:manipulation;transition:background .1s,border-color .1s;}
 .label-size-btn:active{background:var(--s3);}
 .label-size-btn.selected{border-color:var(--accent);background:rgba(124,108,252,.15);}
-.lsb-preview{color:var(--text);font-family:'DM Sans',sans-serif;letter-spacing:.04em;line-height:1;margin-bottom:4px;}
-.lsb-preview-region{font-size:24px;font-weight:300;letter-spacing:.12em;}
-.lsb-preview-zone{font-size:18px;font-weight:400;letter-spacing:.06em;}
-.lsb-preview-place{font-size:13px;font-weight:500;}
+.lsb-preview{color:var(--text);font-family:'Fraunces',serif;letter-spacing:.04em;line-height:1;margin-bottom:4px;}
+.lsb-preview-region{font-size:26px;font-weight:300;letter-spacing:.14em;text-transform:uppercase;}
+.lsb-preview-zone{font-size:20px;font-weight:400;letter-spacing:.08em;text-transform:uppercase;}
+.lsb-preview-place{font-size:15px;font-weight:500;font-style:italic;}
 .lsb-name{font-size:12px;color:var(--text);}
 .label-size-btn.selected .lsb-name{color:var(--accent);}
 .lsb-desc{font-size:9px;color:var(--muted);text-align:center;line-height:1.2;}
@@ -428,7 +431,7 @@ textarea.plain-input{height:70px;padding:10px 12px;resize:none;line-height:1.5;}
       <p class="field-label">Nota <span style="color:var(--muted);font-size:10px;text-transform:none">(opcional)</span></p>
       <textarea class="plain-input" id="place-note" placeholder="Anotaciones, pistas, estado..." maxlength="200" spellcheck="false"></textarea>
     </div>
-    <button id="place-switch-to-label" class="panel-link">¿Prefieres añadir una etiqueta de texto?</button>
+    <button id="place-switch-to-label" class="panel-link">ETIQUETA DE TEXTO</button>
     <div class="panel-foot"><button class="btn-full btn-cancel" id="place-cancel">Cancelar</button><button class="btn-full btn-accent" id="place-confirm">Colocar</button></div>
   </div>
 </div>
@@ -798,6 +801,7 @@ function doZoom(factor,cx,cy){
 // MARKERS
 // ══════════════════════════════════════════════════════
 let highlightedMarkerId=null;
+let highlightedLabelId=null;
 
 function renderMarkers(){
   mapWrap.querySelectorAll('.marker').forEach(el=>el.remove());
@@ -825,21 +829,28 @@ const LABEL_ZOOM_RANGES={
 function renderLabels(){
   mapWrap.querySelectorAll('.map-label').forEach(el=>el.remove());
   const m=curMap();if(!m||!m.labels)return;
-  const inv=1/m.scale;
+  if(APP.iconVisibility.__labels===false)return;
+  // Compensación de zoom: invertimos el scale para mantener tamaño legible,
+  // pero limitamos para que en zoom muy alejado no invadan el mapa entero.
+  const inv=Math.min(1/m.scale, 3.5);
   m.labels.forEach(lb=>{
     const range=LABEL_ZOOM_RANGES[lb.size]||LABEL_ZOOM_RANGES.zone;
-    if(m.scale<range.min||m.scale>range.max)return;
+    const isHL=lb.id===highlightedLabelId;
+    // Si está highlighted, lo mostramos SIEMPRE aunque esté fuera del rango de zoom
+    if(!isHL&&(m.scale<range.min||m.scale>range.max))return;
     const el=document.createElement('div');
-    el.className='map-label map-label-'+lb.size;
+    el.className='map-label map-label-'+lb.size+(isHL?' highlighted':'');
     el.style.cssText=`left:${lb.x}px;top:${lb.y}px;transform:translate(-50%,-50%) scale(${inv})`;
-    el.textContent=lb.text;
+    el.innerHTML=`<div class="label-ring"></div><span class="label-text">${escapeHtml(lb.text)}</span>`;
     el.dataset.lbid=lb.id;
     mapWrap.appendChild(el);
   });
 }
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 function highlightMarker(markerId,mapId){
   const p=curProj();if(!p)return;
+  highlightedLabelId=null;
   // Switch map if needed
   if(mapId&&mapId!==p.currentMap){
     p.currentMap=mapId;rebuildSelector();
@@ -848,16 +859,36 @@ function highlightMarker(markerId,mapId){
     loadMapImage(m).then(()=>{emptyState.style.display='none';highlightedMarkerId=markerId;applyTransform();centerOnMarker(markerId);});
     return;
   }
-  highlightedMarkerId=markerId;renderMarkers();centerOnMarker(markerId);
+  highlightedMarkerId=markerId;renderMarkers();renderLabels();centerOnMarker(markerId);
 }
 
-function clearHighlight(){highlightedMarkerId=null;renderMarkers();}
+function highlightLabel(labelId,mapId){
+  const p=curProj();if(!p)return;
+  highlightedMarkerId=null;
+  if(mapId&&mapId!==p.currentMap){
+    p.currentMap=mapId;rebuildSelector();
+    const m=p.maps.find(x=>x.id===mapId);
+    if(!m)return;
+    loadMapImage(m).then(()=>{emptyState.style.display='none';highlightedLabelId=labelId;applyTransform();centerOnLabel(labelId);});
+    return;
+  }
+  highlightedLabelId=labelId;renderMarkers();renderLabels();centerOnLabel(labelId);
+}
+
+function clearHighlight(){highlightedMarkerId=null;highlightedLabelId=null;renderMarkers();renderLabels();}
 
 function centerOnMarker(markerId){
   const m=curMap();if(!m)return;
   const mk=m.markers.find(x=>x.id===markerId);if(!mk)return;
   const aw=mapArea.clientWidth,ah=mapArea.clientHeight;
   m.ox=aw/2-mk.x*m.scale;m.oy=ah/2-mk.y*m.scale;clamp();applyTransform();
+}
+
+function centerOnLabel(labelId){
+  const m=curMap();if(!m||!m.labels)return;
+  const lb=m.labels.find(x=>x.id===labelId);if(!lb)return;
+  const aw=mapArea.clientWidth,ah=mapArea.clientHeight;
+  m.ox=aw/2-lb.x*m.scale;m.oy=ah/2-lb.y*m.scale;clamp();applyTransform();
 }
 
 // ══════════════════════════════════════════════════════
@@ -1142,23 +1173,43 @@ searchInput.addEventListener('input',()=>{
   const p=curProj();if(!p){searchResults.classList.remove('open');return;}
   const results=[];
   p.maps.forEach(map=>{
+    // Marcadores
     map.markers.forEach(mk=>{
       const name=(mk.name||'').toLowerCase();
       const note=(mk.note||'').toLowerCase();
-      const label=iconLabel(mk.type).toLowerCase();
-      if(name.includes(q)||note.includes(q)||label.includes(q)){
-        results.push({mk,mapId:map.id,mapName:map.name});
+      const defaultLabel=iconLabel(mk.type).toLowerCase();
+      const customLabel=(APP.iconTotals[mk.type+'_name']||'').toLowerCase();
+      if(name.includes(q)||note.includes(q)||defaultLabel.includes(q)||customLabel.includes(q)){
+        results.push({kind:'marker',mk,mapId:map.id,mapName:map.name});
       }
     });
+    // Etiquetas de texto
+    if(map.labels){
+      map.labels.forEach(lb=>{
+        const text=(lb.text||'').toLowerCase();
+        if(text.includes(q)){
+          results.push({kind:'label',lb,mapId:map.id,mapName:map.name});
+        }
+      });
+    }
   });
   if(!results.length){searchResults.innerHTML='<div class="sr-empty">Sin resultados</div>';searchResults.classList.add('open');return;}
   searchResults.innerHTML='';
-  results.slice(0,20).forEach(({mk,mapId,mapName})=>{
+  results.slice(0,20).forEach(r=>{
     const item=document.createElement('div');item.className='sr-item';
-    const displayName=mk.name||iconLabel(mk.type);
-    const meta=[(mk.name?iconLabel(mk.type):''),mapName].filter(Boolean).join(' · ');
-    item.innerHTML=`<div class="sr-item-icon">${iconSVG(mk.type,22)}</div><div class="sr-item-info"><div class="sr-item-name">${displayName}</div><div class="sr-item-meta">${meta}${mk.note?` — ${mk.note.slice(0,40)}`:''}</div></div>`;
-    item.addEventListener('click',()=>{searchResults.classList.remove('open');searchInput.value='';highlightMarker(mk.id,mapId);});
+    if(r.kind==='marker'){
+      const {mk,mapId,mapName}=r;
+      const displayName=mk.name||(APP.iconTotals[mk.type+'_name']||iconLabel(mk.type));
+      const typeLabel=APP.iconTotals[mk.type+'_name']||iconLabel(mk.type);
+      const meta=[(mk.name?typeLabel:''),mapName].filter(Boolean).join(' · ');
+      item.innerHTML=`<div class="sr-item-icon">${iconSVG(mk.type,22)}</div><div class="sr-item-info"><div class="sr-item-name">${displayName}</div><div class="sr-item-meta">${meta}${mk.note?` — ${mk.note.slice(0,40)}`:''}</div></div>`;
+      item.addEventListener('click',()=>{searchResults.classList.remove('open');searchInput.value='';highlightMarker(mk.id,mapId);});
+    }else{
+      const {lb,mapId,mapName}=r;
+      const sizeLabel=lb.size==='region'?'Región':lb.size==='place'?'Lugar':'Zona';
+      item.innerHTML=`<div class="sr-item-icon" style="font-family:'Times New Roman',serif;font-size:18px;font-weight:700;color:var(--text);">T</div><div class="sr-item-info"><div class="sr-item-name">${lb.text}</div><div class="sr-item-meta">Etiqueta · ${sizeLabel} · ${mapName}</div></div>`;
+      item.addEventListener('click',()=>{searchResults.classList.remove('open');searchInput.value='';highlightLabel(lb.id,mapId);});
+    }
     searchResults.appendChild(item);
   });
   searchResults.classList.add('open');
@@ -1212,6 +1263,43 @@ function renderCounters(){
     const empty=document.createElement('p');empty.style.cssText='font-size:14px;color:var(--muted);text-align:center;padding:20px 0;';
     empty.textContent='Configura los iconos primero (botón ⋯)';body.appendChild(empty);return;
   }
+
+  // Pastilla superior: toggle de etiquetas de texto
+  const labelsVisible=APP.iconVisibility.__labels!==false;
+  let labelCount=0;
+  if(p)p.maps.forEach(mp=>{if(mp.labels)labelCount+=mp.labels.length;});
+  let curLabelCount=0;
+  if(m&&m.labels)curLabelCount=m.labels.length;
+
+  const lblRow=document.createElement('div');
+  lblRow.style.cssText=`display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--s2);border-radius:10px;border:1px solid var(--b1);opacity:${labelsVisible?'1':'0.4'};transition:opacity .15s;`;
+
+  const lblCheck=document.createElement('button');
+  lblCheck.style.cssText=`width:22px;height:22px;border-radius:5px;border:1.5px solid ${labelsVisible?'var(--accent)':'var(--b2)'};background:${labelsVisible?'var(--accent)':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;flex-shrink:0;transition:all .15s;`;
+  lblCheck.innerHTML=labelsVisible?'<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':'';
+  lblCheck.addEventListener('click',()=>{
+    APP.iconVisibility.__labels=!labelsVisible;
+    renderLabels();scheduleSave();renderCounters();
+  });
+
+  const lblIconEl=document.createElement('div');
+  lblIconEl.style.cssText='flex-shrink:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-family:"Times New Roman",serif;font-size:22px;font-weight:700;color:var(--text);line-height:1;';
+  lblIconEl.textContent='T';
+
+  const lblSubLine=p&&p.maps.length>1&&m
+    ?`<span style="font-size:11px;color:var(--muted);display:block;margin-top:1px">Este mapa: ${curLabelCount}</span>`:'';
+  const lblNameEl=document.createElement('div');
+  lblNameEl.style.cssText='flex:1;font-size:14px;color:var(--text);';
+  lblNameEl.innerHTML='ETIQUETAS'+lblSubLine;
+
+  const lblValEl=document.createElement('div');
+  lblValEl.innerHTML=`<span class="counter-val">${labelCount}</span>`;
+
+  lblRow.appendChild(lblCheck);lblRow.appendChild(lblIconEl);lblRow.appendChild(lblNameEl);lblRow.appendChild(lblValEl);
+  body.appendChild(lblRow);
+
+  // Separador tras pastilla de etiquetas
+  const lblSep=document.createElement('div');lblSep.style.cssText='border-top:1px solid var(--b1);margin:4px 0;';body.appendChild(lblSep);
 
   // Botones ver todos / ocultar todos
   const allVisible=configured.every(ic=>APP.iconVisibility[ic.id]!==false);
