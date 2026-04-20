@@ -598,21 +598,17 @@ function resolveVerticalPasteValues({ rangeSize, clipboardText }) {
 }
 
 function copyTextToClipboard(text) {
-  const fallbackCopy = () => {
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.setAttribute("readonly", "");
-    textarea.style.cssText = "position:fixed;opacity:0;pointer-events:none;left:-9999px";
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand("copy");
-    textarea.remove();
-  };
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(text).catch(() => fallbackCopy());
-    return;
-  }
-  fallbackCopy();
+  // execCommand síncrono — funciona en Safari dentro del user gesture.
+  // navigator.clipboard.writeText NO se usa: Safari lo bloquea si ha habido
+  // cualquier paso async o preventDefault antes en la cadena.
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.cssText = "position:fixed;opacity:0;pointer-events:none;left:-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
 }
 
 function getCopySelection() {
@@ -3166,7 +3162,10 @@ function renderApp(root) {
   renderRows();
   const gridRoot = root.querySelector(".month-block__body-grid");
   gridRoot?.addEventListener("keydown", handleGridEnterKey);
-  gridRoot?.addEventListener("paste", handleGridPaste);
+  // Paste a nivel document para compatibilidad con Safari (no despacha paste a divs no editables)
+  document.addEventListener("paste", (event) => {
+    if (gridRoot && gridRoot.contains(document.activeElement)) handleGridPaste(event);
+  });
   gridRoot?.addEventListener("pointerdown", handleGridPointerDown);
   document.addEventListener("pointermove", handleGridPointerMove);
   document.addEventListener("pointerup", handleGridPointerUp);
