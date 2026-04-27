@@ -335,11 +335,89 @@ function applyTranslations() {
     if (labelSpan) labelSpan.textContent = label;
     el.title = t("header.sort", label);
   });
-  // Sincronizar valor del switcher
-  const sw = document.getElementById("lang-switcher");
-  if (sw) sw.value = currentLang;
+  // Sincronizar el trigger del dropdown custom de idioma
+  const triggerLabel = document.querySelector("#lang-switcher .lang-dropdown__current");
+  if (triggerLabel) triggerLabel.textContent = currentLang.toUpperCase();
+  document.querySelectorAll(".lang-dropdown__option").forEach((opt) => {
+    opt.classList.toggle("is-selected", opt.dataset.lang === currentLang);
+    opt.setAttribute("aria-selected", opt.dataset.lang === currentLang ? "true" : "false");
+  });
   // Refrescar tooltip del botón export y del chip
   if (typeof updateExportButtonState === "function") updateExportButtonState();
+}
+
+// Dropdown de idioma custom — mismo lenguaje visual que el resto de la app.
+function setupLangDropdown(root) {
+  const wrapper = root.querySelector("#lang-dropdown");
+  if (!wrapper) return;
+  const trigger = wrapper.querySelector(".lang-dropdown__trigger");
+  const menu    = wrapper.querySelector(".lang-dropdown__menu");
+  const options = wrapper.querySelectorAll(".lang-dropdown__option");
+
+  const closeMenu = () => {
+    if (menu.hidden) return;
+    menu.hidden = true;
+    wrapper.classList.remove("is-open");
+    trigger.setAttribute("aria-expanded", "false");
+  };
+  const openMenu = () => {
+    if (!menu.hidden) return;
+    menu.hidden = false;
+    wrapper.classList.add("is-open");
+    trigger.setAttribute("aria-expanded", "true");
+    // Focus en la opción activa para navegación por teclado
+    const active = wrapper.querySelector(`.lang-dropdown__option[data-lang="${currentLang}"]`);
+    (active || options[0])?.focus();
+  };
+  const toggleMenu = () => (menu.hidden ? openMenu() : closeMenu());
+
+  trigger.addEventListener("click", (e) => { e.stopPropagation(); toggleMenu(); });
+  trigger.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openMenu();
+    }
+  });
+
+  options.forEach((opt) => {
+    opt.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setLang(opt.dataset.lang);
+      closeMenu();
+      trigger.focus();
+    });
+    opt.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        setLang(opt.dataset.lang);
+        closeMenu();
+        trigger.focus();
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        const next = opt.nextElementSibling || options[0];
+        next.focus();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        const prev = opt.previousElementSibling || options[options.length - 1];
+        prev.focus();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        closeMenu();
+        trigger.focus();
+      } else if (e.key === "Tab") {
+        closeMenu();
+      }
+    });
+  });
+
+  // Cerrar al hacer click fuera
+  document.addEventListener("click", (e) => {
+    if (!wrapper.contains(e.target)) closeMenu();
+  });
+  // Cerrar con Escape global
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !menu.hidden) closeMenu();
+  });
 }
 
 
@@ -3665,12 +3743,25 @@ function renderApp(root) {
           <button type="button" class="cue-sheet-btn info-btn"
                   data-i18n-aria-label="btn.info.aria"
                   data-i18n-title="btn.info.title">&#x2139;</button>
-          <select id="lang-switcher" class="cue-sheet-lang"
-                  data-i18n-aria-label="lang.label"
-                  data-i18n-title="lang.label">
-            <option value="es">ES&nbsp;·&nbsp;Español</option>
-            <option value="en">EN&nbsp;·&nbsp;English</option>
-          </select>
+          <div class="lang-dropdown" id="lang-dropdown">
+            <button type="button" class="lang-dropdown__trigger" id="lang-switcher"
+                    aria-haspopup="listbox" aria-expanded="false"
+                    data-i18n-aria-label="lang.label"
+                    data-i18n-title="lang.label">
+              <span class="lang-dropdown__current">ES</span>
+              <span class="lang-dropdown__caret" aria-hidden="true">&#x25BE;</span>
+            </button>
+            <ul class="lang-dropdown__menu" role="listbox" hidden>
+              <li class="lang-dropdown__option" role="option" data-lang="es" tabindex="-1">
+                <span class="lang-dropdown__code">ES</span>
+                <span class="lang-dropdown__name">Español</span>
+              </li>
+              <li class="lang-dropdown__option" role="option" data-lang="en" tabindex="-1">
+                <span class="lang-dropdown__code">EN</span>
+                <span class="lang-dropdown__name">English</span>
+              </li>
+            </ul>
+          </div>
           <span class="cabecera-acciones__spacer"></span>
           <button type="button" class="cue-sheet-btn import-btn"
                   data-i18n="btn.import"
@@ -3865,12 +3956,8 @@ function renderApp(root) {
   });
   root.querySelector("#export-error-chip")?.addEventListener("click", toggleExportErrorVisualization);
 
-  // Selector de idioma
-  const langSwitcher = root.querySelector("#lang-switcher");
-  if (langSwitcher) {
-    langSwitcher.value = currentLang;
-    langSwitcher.addEventListener("change", (e) => setLang(e.target.value));
-  }
+  // Selector de idioma — dropdown custom con el aspecto de la app
+  setupLangDropdown(root);
 
   // Botón info y cierre del modal
   root.querySelector(".info-btn")?.addEventListener("click", openInfoModal);
