@@ -199,25 +199,25 @@ body {
   color: #ffffff;
 }
 
-/* Selector de idioma — mismo aspecto que .cue-sheet-btn */
-.cue-sheet-lang {
+/* Selector de idioma — dropdown custom con el aspecto de la app */
+.lang-dropdown {
+  position: relative;
+  margin-left: 8px;
+  display: inline-flex;
+}
+
+.lang-dropdown__trigger {
   appearance: none;
-  -webkit-appearance: none;
   border: 1px solid #ffffff;
   border-radius: 3px;
-  background-color: transparent;
-  background-image:
-    linear-gradient(45deg, transparent 50%, #ffffff 50%),
-    linear-gradient(135deg, #ffffff 50%, transparent 50%);
-  background-position:
-    calc(100% - 11px) 10px,
-    calc(100% - 6px) 10px;
-  background-size: 5px 5px, 5px 5px;
-  background-repeat: no-repeat;
+  background: transparent;
   color: #ffffff;
   font-family: inherit;
   height: 24px;
-  padding: 0 22px 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 10px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -225,22 +225,92 @@ body {
   cursor: pointer;
   transition: background-color 120ms ease, color 120ms ease;
   white-space: nowrap;
-  margin-left: 8px;
 }
 
-.cue-sheet-lang:hover,
-.cue-sheet-lang:focus-visible {
-  background-color: #ffffff;
+.lang-dropdown__trigger:hover,
+.lang-dropdown__trigger:focus-visible {
+  background: #ffffff;
   color: #3d3d3d;
   outline: none;
-  background-image:
-    linear-gradient(45deg, transparent 50%, #3d3d3d 50%),
-    linear-gradient(135deg, #3d3d3d 50%, transparent 50%);
 }
 
-.cue-sheet-lang option {
+.lang-dropdown__caret {
+  font-size: 9px;
+  line-height: 1;
+  margin-top: 1px;
+  transition: transform 150ms ease;
+}
+
+.lang-dropdown.is-open .lang-dropdown__caret {
+  transform: rotate(180deg);
+}
+
+.lang-dropdown__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 1500;
+  min-width: 100%;
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
   background: #3d3d3d;
+  border: 1px solid #ffffff;
+  border-radius: 3px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.lang-dropdown__menu[hidden] { display: none; }
+
+.lang-dropdown__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: #ffffff;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.lang-dropdown__option:hover,
+.lang-dropdown__option:focus-visible {
+  background: #ffffff;
+  color: #3d3d3d;
+  outline: none;
+}
+
+.lang-dropdown__option.is-selected {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.lang-dropdown__option.is-selected:hover,
+.lang-dropdown__option.is-selected:focus-visible {
+  background: #ffffff;
+  color: #3d3d3d;
+}
+
+.lang-dropdown__code {
+  display: inline-block;
+  min-width: 18px;
+  font-weight: 900;
+}
+
+.lang-dropdown__name {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.lang-dropdown__option:hover .lang-dropdown__name,
+.lang-dropdown__option:focus-visible .lang-dropdown__name {
+  opacity: 1;
 }
 
 /* GUARDAR BORRADOR — variante visual amarilla para diferenciarlo */
