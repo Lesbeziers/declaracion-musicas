@@ -336,8 +336,13 @@ function applyTranslations() {
     el.title = t("header.sort", label);
   });
   // Sincronizar el trigger del dropdown custom de idioma
+  const LANG_NATIVE_LABELS = { es: "ESPAÑOL", en: "ENGLISH" };
   const triggerLabel = document.querySelector("#lang-switcher .lang-dropdown__current");
-  if (triggerLabel) triggerLabel.textContent = currentLang.toUpperCase();
+  if (triggerLabel) {
+    const code = currentLang.toUpperCase();
+    const name = LANG_NATIVE_LABELS[currentLang] || code;
+    triggerLabel.textContent = `${code} · ${name}`;
+  }
   document.querySelectorAll(".lang-dropdown__option").forEach((opt) => {
     opt.classList.toggle("is-selected", opt.dataset.lang === currentLang);
     opt.setAttribute("aria-selected", opt.dataset.lang === currentLang ? "true" : "false");
@@ -3748,8 +3753,8 @@ function renderApp(root) {
                     aria-haspopup="listbox" aria-expanded="false"
                     data-i18n-aria-label="lang.label"
                     data-i18n-title="lang.label">
-              <span class="lang-dropdown__current">ES</span>
-              <span class="lang-dropdown__caret" aria-hidden="true">&#x25BE;</span>
+              <span class="lang-dropdown__current">ES · ESPAÑOL</span>
+              <span class="lang-dropdown__caret" aria-hidden="true">&#x25BC;</span>
             </button>
             <ul class="lang-dropdown__menu" role="listbox" hidden>
               <li class="lang-dropdown__option" role="option" data-lang="es" tabindex="-1">
