@@ -184,6 +184,206 @@ body {
   outline: none;
 }
 
+.cue-sheet-btn[disabled],
+.cue-sheet-btn[aria-disabled="true"] {
+  opacity: 0.42;
+  cursor: not-allowed;
+  background: transparent;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+.cue-sheet-btn[disabled]:hover,
+.cue-sheet-btn[aria-disabled="true"]:hover {
+  background: transparent;
+  color: #ffffff;
+}
+
+/* Selector de idioma — mismo aspecto que .cue-sheet-btn */
+.cue-sheet-lang {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid #ffffff;
+  border-radius: 3px;
+  background-color: transparent;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #ffffff 50%),
+    linear-gradient(135deg, #ffffff 50%, transparent 50%);
+  background-position:
+    calc(100% - 11px) 10px,
+    calc(100% - 6px) 10px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  color: #ffffff;
+  font-family: inherit;
+  height: 24px;
+  padding: 0 22px 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+.cue-sheet-lang:hover,
+.cue-sheet-lang:focus-visible {
+  background-color: #ffffff;
+  color: #3d3d3d;
+  outline: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #3d3d3d 50%),
+    linear-gradient(135deg, #3d3d3d 50%, transparent 50%);
+}
+
+.cue-sheet-lang option {
+  background: #3d3d3d;
+  color: #ffffff;
+}
+
+/* GUARDAR BORRADOR — variante visual amarilla para diferenciarlo */
+.cue-sheet-btn.save-draft-btn {
+  border-color: #ffd54f;
+  color: #ffd54f;
+}
+
+.cue-sheet-btn.save-draft-btn:hover,
+.cue-sheet-btn.save-draft-btn:focus-visible {
+  background: #ffd54f;
+  color: #3d3d3d;
+}
+
+/* Chip de errores: aparece a la izquierda de GENERAR CUE SHEET */
+.export-error-chip {
+  appearance: none;
+  border: 1px solid #ff7043;
+  background: #c62828;
+  color: #ffffff;
+  font-family: inherit;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, transform 120ms ease;
+  white-space: nowrap;
+  animation: chip-pulse 1.6s ease-in-out infinite;
+}
+
+.export-error-chip[hidden] { display: none; }
+
+.export-error-chip:hover,
+.export-error-chip:focus-visible {
+  background: #ffffff;
+  color: #c62828;
+  outline: none;
+  animation: none;
+}
+
+.export-error-chip.is-active {
+  background: #ffffff;
+  color: #c62828;
+  animation: none;
+}
+
+@keyframes chip-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(198, 40, 40, 0.6); }
+  50%      { box-shadow: 0 0 0 5px rgba(198, 40, 40, 0); }
+}
+
+/* ── Modal: Aviso de borrador importado ───────────────────── */
+.draft-import-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.draft-import-overlay.open { display: flex; }
+
+.draft-import-modal {
+  background: #ffffff;
+  width: min(560px, 100%);
+  border-radius: 6px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  border-top: 6px solid #f9a825;
+  display: flex;
+  flex-direction: column;
+  font-family: inherit;
+}
+
+.draft-import-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 8px;
+}
+
+.draft-import-modal__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #c87a00;
+}
+
+.draft-import-modal__close {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: #555;
+  padding: 4px 8px;
+}
+
+.draft-import-modal__close:hover { color: #000; }
+
+.draft-import-modal__body {
+  padding: 8px 20px 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #333;
+}
+
+.draft-import-modal__body p {
+  margin: 0 0 10px;
+}
+
+.draft-import-modal__hint {
+  font-size: 12px;
+  color: #555;
+  font-style: italic;
+}
+
+.draft-import-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px 20px;
+}
+
+.draft-import-modal__footer .cue-sheet-btn {
+  border-color: #c87a00;
+  color: #c87a00;
+}
+
+.draft-import-modal__footer .cue-sheet-btn:hover,
+.draft-import-modal__footer .cue-sheet-btn:focus-visible {
+  background: #c87a00;
+  color: #ffffff;
+}
+
 /* ── Barra 2: Título de Programa + Capítulo ──────────────── */
 .cabecera-meta {
   flex: 0 0 auto;
