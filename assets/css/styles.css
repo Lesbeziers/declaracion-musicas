@@ -110,8 +110,11 @@ body {
 }
 
 .panel-layout__top-header__inner {
-  width: var(--month-grid-width);
+  max-width: var(--month-grid-width);
+  width: 100%;
   margin: 0 auto;
+  padding: 0 12px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -123,7 +126,8 @@ body {
   left: 50%;
   transform: translateX(-50%);
   pointer-events: none;
-  width: 600px;
+  /* Reservamos ~110px a cada lado para los logos SGAE / M+ a anchos reducidos. */
+  width: min(600px, calc(100% - 220px));
 }
 
 .panel-layout__top-header__title img {
@@ -146,14 +150,18 @@ body {
 }
 
 .cabecera-acciones__inner {
-  width: var(--month-grid-width);
+  max-width: var(--month-grid-width);
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
   min-height: 50px;
   display: flex;
+  flex-wrap: wrap;
+  row-gap: 6px;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  padding: 0 4px;
+  padding: 6px 8px;
 }
 
 .cue-sheet-btn {
@@ -462,22 +470,28 @@ body {
 }
 
 .cabecera-meta__inner {
-  width: var(--month-grid-width);
+  max-width: var(--month-grid-width);
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
   min-height: 50px;
   display: flex;
+  flex-wrap: wrap;
+  row-gap: 8px;
   align-items: center;
-  padding: 0 4px;
+  padding: 6px 8px;
 }
 
 .cabecera-meta__field {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .cabecera-meta__field--titulo {
-  flex: 1 1 auto;
+  flex: 1 1 320px;
+  min-width: 0;
 }
 
 .cabecera-meta__field--capitulo {
@@ -514,7 +528,10 @@ body {
 }
 
 .cabecera-meta__input--titulo {
-  width: 380px;
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 380px;
 }
 
 .cabecera-meta__input--capitulo {
