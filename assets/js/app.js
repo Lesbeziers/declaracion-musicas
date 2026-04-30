@@ -130,6 +130,7 @@ const I18N = {
     "draft.banner": "⚠ BORRADOR — TRABAJO EN CURSO. NO ENVIAR A SGAE",
     "draft.sheetName": "BORRADOR",
     "draft.fileSuffix": "BORRADOR",
+    "draft.watermark": "BORRADOR",
     // Header sort tooltip
     "header.sort": (label) => `Ordenar por ${label}`,
     // Modal Info
@@ -233,6 +234,7 @@ const I18N = {
     "draft.banner": "⚠ DRAFT — WORK IN PROGRESS. DO NOT SUBMIT TO SGAE",
     "draft.sheetName": "DRAFT",
     "draft.fileSuffix": "DRAFT",
+    "draft.watermark": "DRAFT",
     "header.sort": (label) => `Sort by ${label}`,
     "info.title": "ℹ  Information and help",
     "info.close": "Close",
@@ -3281,10 +3283,7 @@ async function exportCueSheet(options = {}) {
 
   const tituloProg = document.getElementById("input-titulo-programa")?.value.trim() || "";
   const capitulo   = document.getElementById("input-capitulo")?.value.trim() || "";
-  const safeTitle  = tituloProg
-    .normalize("NFD").replace(/\p{Diacritic}/gu, "")
-    .toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-  const fileName   = `${safeTitle}_CUE_SHEET${isEN ? "_EN" : ""}.xlsx`;
+  const fileName   = buildSafeFileName(tituloProg, `CUE_SHEET${isEN ? "_EN" : ""}`, capitulo);
   const _block0    = blocks[0];
   const dataRows   = getOrderedRowsForMonth(_block0)
     .map((item) => item.row)
@@ -3438,11 +3437,19 @@ function loadExcelJS() {
   return _excelJsLoadingPromise;
 }
 
-function buildSafeFileName(tituloProg, suffix) {
-  const base = (tituloProg || "Declaracion_Musicas")
+// Sanitiza un valor para usarlo como token en nombre de fichero:
+// quita acentos, normaliza a A-Z0-9 separados por "_". Devuelve "" si queda vacío.
+function safeFileToken(value) {
+  return `${value ?? ""}`
     .normalize("NFD").replace(/\p{Diacritic}/gu, "")
     .toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-  return `${base || "DECLARACION_MUSICAS"}_${suffix}.xlsx`;
+}
+
+function buildSafeFileName(tituloProg, suffix, capitulo = "") {
+  const base = safeFileToken(tituloProg) || "DECLARACION_MUSICAS";
+  const ep   = safeFileToken(capitulo);
+  const epPart = ep ? `_EP_${ep}` : "";
+  return `${base}${epPart}_${suffix}.xlsx`;
 }
 
 // Calcula qué errores afectan a una celda concreta (key) en una fila concreta.
@@ -3455,6 +3462,28 @@ function getRowCellErrorType(rowErrorsByCol, columnKey) {
   return "invalid";
 }
 
+// Genera un PNG con texto diagonal semi-transparente para usarlo como FONDO de
+// hoja Excel (sheet background). Excel tilea (repite) la imagen por toda la hoja,
+// así que el lienzo es relativamente pequeño y el texto va centrado con aire
+// alrededor para que las repeticiones no choquen entre sí.
+// Alpha bajo (~18%) para no estorbar la lectura de los datos.
+function buildDraftWatermarkPNG(text) {
+  const W = 640, H = 320;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, W, H);
+  ctx.translate(W / 2, H / 2);
+  ctx.rotate(-Math.PI / 9); // ≈ -20°
+  ctx.fillStyle = "rgba(120, 120, 120, 0.18)";
+  ctx.font = "bold 90px Arial, Helvetica, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, 0, 0);
+  return canvas.toDataURL("image/png");
+}
+
 async function saveDraft() {
   const ExcelJS = await loadExcelJS().catch((err) => {
     showGridToast(t("toast.excelJsFailed", err.message));
@@ -3464,7 +3493,7 @@ async function saveDraft() {
 
   const tituloProg = document.getElementById("input-titulo-programa")?.value.trim() || "";
   const capitulo   = document.getElementById("input-capitulo")?.value.trim() || "";
-  const fileName   = buildSafeFileName(tituloProg, t("draft.fileSuffix"));
+  const fileName   = buildSafeFileName(tituloProg, t("draft.fileSuffix"), capitulo);
   const sentinelText = t("sentinel.required");
   const bannerText = t("draft.banner");
   const sheetName  = t("draft.sheetName");
@@ -3624,6 +3653,17 @@ async function saveDraft() {
         };
       });
     });
+
+    // Marca de agua "BORRADOR" / "DRAFT" como FONDO de hoja (no objeto flotante):
+    // se renderiza detrás de las celdas, no las bloquea, y Excel la tilea por toda
+    // la hoja. No aparece al imprimir/exportar a PDF (limitación de Excel para los
+    // sheet backgrounds), pero sí es claramente visible al editar — que es donde
+    // hace falta que no haya dudas sobre el documento.
+    const wmId = wb.addImage({
+      base64: buildDraftWatermarkPNG(t("draft.watermark")),
+      extension: "png",
+    });
+    ws.addBackgroundImage(wmId);
 
     // Marca interna en propiedades del libro (segundo nivel de detección)
     wb.properties.title = "Declaracion-Musicas-DRAFT";
