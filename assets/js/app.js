@@ -3393,6 +3393,19 @@ async function exportCueSheet(options = {}) {
       sheetXml = sheetXml.slice(0, startIdx) + sheetXml.slice(endIdx + closeTag.length);
     }
 
+    // La plantilla viene con la vista guardada bajada (topLeftCell="A14", activeCell="O4"),
+    // así que al abrir el fichero Excel posiciona el scroll fuera de la cabecera y los datos
+    // y parece vacío. Forzamos topLeftCell="A9" (justo debajo del panel congelado, mostrando
+    // los headers) y activeCell="A10" (primera fila de datos).
+    sheetXml = sheetXml.replace(
+      /(<pane\b[^>]*\btopLeftCell=")[^"]*("[^>]*\/>)/,
+      '$1A9$2'
+    );
+    sheetXml = sheetXml.replace(
+      /(<selection\b[^>]*\bactiveCell=")[^"]*("[^>]*\bsqref=")[^"]*("[^>]*\/>)/,
+      '$1B10$2B10$3'
+    );
+
     // Guardar XML modificado en el ZIP (el resto queda intacto)
     zip.file("xl/worksheets/sheet1.xml", sheetXml);
 
