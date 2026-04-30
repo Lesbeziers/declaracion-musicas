@@ -3112,7 +3112,7 @@ function applyValidationErrorsToDOM(errors) {
       const titleInput = document.getElementById("input-titulo-programa");
       if (titleInput) {
         titleInput.classList.add("has-export-error");
-        titleInput.placeholder = "OBLIGATORIO";
+        titleInput.placeholder = t("sentinel.required");
       }
     } else if (err.scope === "row") {
       const cell = document.querySelector(
@@ -3125,7 +3125,7 @@ function applyValidationErrorsToDOM(errors) {
           && !cell.querySelector(".export-required-label")) {
         const label = document.createElement("span");
         label.className = "export-required-label";
-        label.textContent = "OBLIGATORIO";
+        label.textContent = t("sentinel.required");
         cell.appendChild(label);
       }
       if (!firstErrorCell) firstErrorCell = cell;
