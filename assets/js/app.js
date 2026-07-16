@@ -3361,6 +3361,25 @@ async function exportCueSheet(options = {}) {
     const COL_LETTERS = ["B","C","D","E","F","G","H","I","J","K"];
     const COL_KEYS    = ["titulo","autor","interprete","duracion","tcIn","tcOut","modalidad","tipoMusica","codigoLibreria","nombreLibreria"];
     const DATA_START  = 10;
+    const TEMPLATE_LAST_ROW = 59; // la plantilla trae 50 filas físicas de datos (10-59)
+
+    // Si hay más filas de datos que las 50 físicas de la plantilla, añadir al XML las
+    // filas que faltan clonando la estructura y estilos de una fila de datos del template.
+    // Sin esto, replaceCellInXml no encontraría celdas B60.., C60.. y perdería filas.
+    const neededLastRow = DATA_START + dataRows.length - 1;
+    if (neededLastRow > TEMPLATE_LAST_ROW) {
+      const buildDataRowXml = (rn) =>
+        `<row r="${rn}" spans="2:11" ht="41.25" customHeight="1" x14ac:dyDescent="0.25">` +
+        `<c r="B${rn}" s="3"/><c r="C${rn}" s="3"/><c r="D${rn}" s="3"/>` +
+        `<c r="E${rn}" s="4"/><c r="F${rn}" s="4"/><c r="G${rn}" s="4"/>` +
+        `<c r="H${rn}" s="5"/><c r="I${rn}" s="5"/>` +
+        `<c r="J${rn}" s="3"/><c r="K${rn}" s="3"/></row>`;
+      let extraRowsXml = "";
+      for (let rn = TEMPLATE_LAST_ROW + 1; rn <= neededLastRow; rn++) extraRowsXml += buildDataRowXml(rn);
+      sheetXml = sheetXml.replace("</sheetData>", `${extraRowsXml}</sheetData>`);
+      // Ampliar la dimensión declarada de la hoja hasta la última fila real.
+      sheetXml = sheetXml.replace(/(<dimension ref="B1:K)\d+("\s*\/>)/, `$1${neededLastRow}$2`);
+    }
 
     dataRows.forEach((row, i) => {
       const rn = DATA_START + i;
@@ -3377,7 +3396,7 @@ async function exportCueSheet(options = {}) {
 
     // Eliminar del XML las filas vacías del template que NUBE interpretaría como registros
     const firstEmptyRow = DATA_START + dataRows.length;
-    const lastTemplateRow = DATA_START + 49; // plantilla tiene 50 filas (10-59)
+    const lastTemplateRow = TEMPLATE_LAST_ROW; // plantilla tiene 50 filas (10-59)
     // Parsear por posición de caracteres para evitar problemas con regex multilinea
     for (let rn = firstEmptyRow; rn <= lastTemplateRow; rn++) {
       // Buscar apertura de la fila
